@@ -1,0 +1,26 @@
+```swift {tabTitle:Swift}
+import Sentry
+
+let user = User()
+user.email = "john.doe@example.com"
+// Start the SDK before setting the user, otherwise it will be ignored.
+SentrySDK.setUser(user)
+```
+
+```objc {tabTitle:Objective-C}
+@import Sentry;
+
+SentryUser *user = [[SentryUser alloc] init];
+user.email = @"john.doe@example.com";
+// Start the SDK before setting the user, otherwise it will be ignored.
+[SentrySDK setUser:user];
+```
+
+```objc {tabTitle:Objective-C (SentryObjC)}
+#import <SentryObjC/SentryObjC.h>
+
+SentryObjCUser *user = [[SentryObjCUser alloc] init];
+user.email = @"john.doe@example.com";
+// Start the SDK before setting the user, otherwise it will be ignored.
+[SentryObjCSDK setUser:user];
+```

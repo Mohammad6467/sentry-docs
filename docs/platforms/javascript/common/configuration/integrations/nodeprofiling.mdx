@@ -1,0 +1,45 @@
+---
+title: NodeProfiling
+description: "Capture profiling data for Node.js applications."
+supportedCategories:
+  - server
+supported:
+  - javascript.electron
+notSupported:
+  - javascript.bun
+  - javascript.elysia
+  - javascript.deno
+  - javascript.cloudflare
+---
+
+<Alert>
+
+This integration only works in the Node.js runtime.
+
+</Alert>
+
+`nodeProfilingIntegration` must be imported from the `@sentry/profiling-node` package.
+
+[Profiling](/product/profiling/) offers a deeper level of visibility on top of traditional tracing, removing the need for custom instrumentation and enabling precise code-level visibility into your application in a production environment.
+
+The NodeProfiling integration sets up automatic performance profiling for your Node.js applications. It captures profiles via v8 and sends them to Sentry. To use this integration, you also need to have the performance monitoring enabled.
+
+Read more about [setting up NodeProfiling](./../../../profiling/).
+
+```JavaScript {tabTitle:CJS}
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+
+Sentry.init({
+  integrations: [nodeProfilingIntegration()],
+});
+```
+
+```JavaScript {tabTitle:ESM}
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+Sentry.init({
+  integrations: [nodeProfilingIntegration()],
+});
+```

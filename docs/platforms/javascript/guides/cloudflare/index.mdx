@@ -1,0 +1,180 @@
+---
+title: Cloudflare
+description: "Learn how to manually set up Sentry for Cloudflare Workers and capture your first events."
+sdk: sentry.javascript.cloudflare
+categories:
+  - server
+  - serverless
+  - server-only
+---
+
+<AgentSetupCallout skill="sentry-cloudflare-sdk" platformName="Cloudflare" />
+
+This guide covers Cloudflare Workers. If you're deploying a Cloudflare Pages application, see <PlatformLink to="/features/pages/">Cloudflare Pages</PlatformLink> instead, which is set up with middleware rather than a wrapper.
+
+If you're using a framework, select it to open its setup instructions:
+
+<FrameworkSelector runtime="cloudflare" />
+
+<Alert level="warning" title="Cloudflare Workers limitations">
+  The Cloudflare Workers runtime has some platform-specific limitations that
+  affect tracing. See [Known Limitations](#known-limitations) for details.
+</Alert>
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+<PlatformContent includePath="getting-started-install" />
+
+## Configure
+
+**Error Monitoring** starts working as soon as you configure Sentry. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing**.
+
+<Include name="quick-start-features-expandable" />
+
+This guide sets Sentry up through Vite, which is what we recommend for Cloudflare Workers. The plugin does the wiring at build time, so your Worker code stays untouched.
+
+<Alert>
+
+Not using Vite? See the <PlatformLink to="/install/wrangler/">Wrangler setup</PlatformLink> for the manual instrumentation.
+
+</Alert>
+
+### Add the Vite Plugin
+
+Add the Sentry plugin to your existing `vite.config.ts`, next to `cloudflare()`. Both of its behaviors are on by default.
+
+`autoInstrumentation` wraps your Worker entry, and any Durable Object, Workflow or Agents SDK class in your wrangler config, at build time, so you don't have to call `Sentry.withSentry()` yourself. `buildTimeInstrumentation` instruments bundled dependencies such as database clients, which is the only way to trace them in the Workers runtime, where the SDK can't patch them at runtime.
+
+To see its options, which packages it instruments, and how to opt out of either behavior, see <PlatformLink to="/install/vite-plugin/">Vite Plugin</PlatformLink>.
+
+```typescript {filename:vite.config.ts} {diff}
+ import { cloudflare } from "@cloudflare/vite-plugin";
++import { sentryCloudflareVitePlugin } from "@sentry/cloudflare/vite";
+ import { defineConfig } from "vite";
+
+ export default defineConfig({
+   plugins: [
+     cloudflare(),
++    sentryCloudflareVitePlugin(),
+   ],
+ });
+```
+
+Run `vite build` before `wrangler deploy`, and use `vite dev` in place of `wrangler dev` for local development.
+
+### Wrangler Configuration
+
+<PlatformContent
+  includePath="getting-started-config"
+  platform="javascript.cloudflare"
+/>
+
+### Add Your Sentry Options
+
+Create an `instrument.server.ts` file next to your Worker entry, the file that `main` points at in your wrangler config. If `main` is `src/index.ts`, the file belongs at `src/instrument.server.ts`, not at the project root.
+
+The name is fixed. The plugin looks for `instrument.server` with a `.ts`, `.mts`, `.js`, `.mjs` or `.cjs` extension, and passes its default export to `withSentry`. Use `defineCloudflareOptions` to get the options type-checked.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```typescript {filename:src/instrument.server.ts}
+import { defineCloudflareOptions } from "@sentry/cloudflare";
+
+export default defineCloudflareOptions((env) => ({
+  dsn: "___PUBLIC_DSN___",
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+}));
+```
+
+<Expandable title="Prefer to configure Sentry with bindings?">
+
+If you don't add an `instrument.server.*` file, the SDK reads its configuration from the Worker's `env` at runtime instead: `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_DEBUG`, `SENTRY_TUNNEL` and `SENTRY_TRACE_LIFECYCLE`. Set them as secrets or vars in your wrangler config.
+
+</Expandable>
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+### Known Limitations
+
+#### Span Durations
+
+Server-side spans will display `0ms` for their durations. In the Cloudflare Workers runtime, `performance.now()` and `Date.now()` only advance after I/O occurs. CPU-bound operations will show zero duration. This is a security measure Cloudflare implements to [mitigate against timing attacks](https://developers.cloudflare.com/workers/runtime-apis/performance/).
+
+This is expected behavior in the Cloudflare Workers environment and affects all frameworks deployed to Cloudflare Workers, including Next.js, Astro, Remix, and others.
+
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with `console` or Consola, you can capture those logs with <PlatformLink to="/logs/#console-integration">our console integrations</PlatformLink>.
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add a route to your Worker that throws an error:
+
+```javascript
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/debug-sentry") {
+      throw new Error("Sentry Test Error");
+    }
+
+    return new Response("...");
+  },
+};
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Cloudflare Worker. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Using a framework? Select it in the [framework selector](#framework-selector) at the top of this page
+- Find various support topics in <PlatformLink to="/troubleshooting/">troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

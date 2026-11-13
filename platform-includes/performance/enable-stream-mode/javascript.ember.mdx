@@ -1,0 +1,16 @@
+Opt in by adding `spanStreamingIntegration()` to your list of integrations when initializing the SDK:
+
+```javascript
+import * as Sentry from "@sentry/ember";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  tracesSampleRate: 1.0,
+  integrations: [
+    // enables stream mode
+    Sentry.spanStreamingIntegration(),
+  ],
+});
+```
+
+To revert to transaction mode, remove `spanStreamingIntegration()` from your integrations.

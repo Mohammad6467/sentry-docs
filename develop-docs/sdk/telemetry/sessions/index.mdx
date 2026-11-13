@@ -1,0 +1,421 @@
+---
+title: Sessions
+description: Release health tracking via session lifecycle updates and crash-free rate computation.
+spec_id: sdk/telemetry/sessions
+spec_version: 1.7.1
+spec_status: stable
+spec_depends_on:
+  - id: sdk/foundations/transport/envelopes
+    version: ">=1.0.0"
+  - id: sdk/foundations/client
+    version: ">=3.0.0"
+spec_changelog:
+  - version: 1.7.1
+    date: 2026-08-03
+    summary: Deferred filter ordering to the client event pipeline and removed the contradictory apply_to_scope timing note
+  - version: 1.7.0
+    date: 2025-10-16
+    summary: Added error level impact rules for session error counting
+  - version: 1.6.0
+    date: 2025-09-30
+    summary: Added unhandled session status
+  - version: 1.5.1
+    date: 2025-07-16
+    summary: Clarified session envelope wording
+  - version: 1.5.0
+    date: 2023-05-08
+    summary: Added abnormal_mechanism field to session payload
+  - version: 1.4.1
+    date: 2022-11-14
+    summary: Clarified rate limited events should update sessions
+  - version: 1.4.0
+    date: 2022-04-26
+    summary: Added session update filtering requirements for dropped events
+  - version: 1.3.1
+    date: 2021-06-02
+    summary: Added mobile session background timeout note
+  - version: 1.3.0
+    date: 2021-05-17
+    summary: Added SDK implementation guidelines (individual sessions, session aggregates)
+  - version: 1.2.1
+    date: 2021-01-13
+    summary: Updated release format to match suggested pattern
+  - version: 1.2.0
+    date: 2020-12-02
+    summary: Added session aggregates payload
+  - version: 1.1.1
+    date: 2020-09-02
+    summary: Clarified session modes and improved documentation
+  - version: 1.1.0
+    date: 2020-08-28
+    summary: Added SDK considerations (session modes, exposed API, update recommendations)
+  - version: 1.0.0
+    date: 2020-05-25
+    summary: Initial spec — session update payload, basic operation, server model
+---
+
+<SpecRfcAlert />
+
+<SpecMeta />
+
+## Overview
+
+Sessions allow Sentry to track the health of releases by monitoring when applications start, end, crash, or encounter errors. SDKs send session update events as `session` or `sessions` envelope items. Sentry uses this data to compute crash-free rates, error rates, and session durations per release.
+
+Related specs:
+- [Envelopes](/sdk/foundations/envelopes/) — transport format
+- [Envelope Items](/sdk/foundations/envelopes/envelope-items/) — `session` and `sessions` item type constraints
+
+---
+
+## Concepts
+
+### Session Modes
+
+SDKs operate in one of two session modes:
+
+- **User-mode** _(application-mode)_ — A single session spans the full application run. Typical for mobile apps, desktop apps, CLI tools, and browser sessions. Session duration is meaningful.
+- **Server-mode** _(request-mode)_ — Each HTTP request or RPC call is a separate session. High volume, short-lived. Duration is typically not useful. Sessions **SHOULD** be pre-aggregated before sending.
+
+### Session Lifecycle
+
+A session progresses through these states:
+
+```
+[init] → ok → exited | unhandled | crashed | abnormal
+```
+
+- `ok` — session is in progress and healthy
+- `exited` — session terminated normally (duration is tracked)
+- `unhandled` — session terminated with an unhandled error
+- `crashed` — session terminated in a crash (process terminated)
+- `abnormal` — session fate is unknown (e.g., power loss, force kill)
+
+### Server Model
+
+Sentry's session system uses hourly buckets of pre-materialized data. Session updates are immediately materialized into the correct bucket on arrival. This means the protocol is **additive only** — the client **MUST** store the entire session state and send it with each update.
+
+---
+
+## Behavior
+
+<SpecSection id="session-lifecycle" status="stable" since="1.0.0">
+
+### Session Lifecycle
+
+Sessions are entirely client-driven. The client determines when a session starts, ends, or transitions to an unhealthy state.
+
+- Sessions are updated through session change events that hold the **entire** session state. The most recent event holds the authoritative state.
+- The initial session event **MUST** have `init` set to `true`. This lets the server skip deduplication. Internally, `seq` is set to `0` when `init` is `true`.
+- Sessions can only be updated for 5 days. After that, a session without a second event is permanently marked as good.
+- A session does not have to be started in order to crash — just reporting a crash is sufficient.
+
+</SpecSection>
+
+<SpecSection id="attribute-immutability" status="stable" since="1.0.0">
+
+### Attribute Immutability
+
+SDKs **MUST NOT** change session attributes (`did`, `started`, or any `attrs` fields) in subsequent updates. Only `status`, `duration`, and `errors` **MAY** change. If a user is not known at session start, the session start **SHOULD** be delayed or the session restarted once the user is known.
+
+</SpecSection>
+
+<SpecSection id="terminal-states" status="stable" since="1.0.0">
+
+### Terminal Session States
+
+Once a session reaches a terminal state, the SDK **MUST NOT** send further updates. Terminal states are: `exited`, `crashed`, `abnormal`, and (since 1.6.0) `unhandled`.
+
+SDKs **SHOULD** distinguish between terminal states:
+
+- **`exited`**: The session ended cleanly. Only `exited` sessions have their duration averaged. A session **MAY** exit even if errors occurred.
+
+- **`unhandled`** (since 1.6.0): An unhandled error occurred but the process did not terminate. Use when:
+  - An unhandled error occurred with a natural session end (e.g., end of HTTP request).
+  - The application did not handle an error, but the language or framework prevented termination.
+
+- **`crashed`**: The application process terminated. Use when:
+  - A complete crash occurred (crash to desktop, process termination).
+  - A user feedback dialog is surfaced. After this, the SDK **MUST** start a new session.
+
+- **`abnormal`**: The session fate is unknown. SDKs **SHOULD** prefer `exited` or `crashed` when possible. Use when the application did not shut down correctly (e.g., power loss, `kill -9`, task manager). Abnormal session ends are normally recorded on application restart.
+
+</SpecSection>
+
+<SpecSection id="error-counting" status="stable" since="1.0.0">
+
+### Error Counting
+
+SDKs **MUST** maintain a running `errors` counter that is incremented when errors occur during the session. The counter **MUST** also be incremented when a session goes to `crashed` (the crash itself is always an error). Ingest forces `errors` to 1 if not set or 0.
+
+A session that is `ok` with `errors > 0` is considered "errored." All `crashed` and `abnormal` sessions are also considered errored but are subtracted from the final errored count.
+
+(since 1.7.0) Only events from `captureException`, `captureError`, or `captureEvent` **MUST** increment the `errors` counter, and only when their level is `error` or higher. Events from `captureMessage` **MUST NOT** affect the session error count regardless of level.
+
+| Method | Level | Increments `errors` |
+|--------|-------|---------------------|
+| `captureException` / `captureError` | `fatal` | Yes |
+| `captureException` / `captureError` | `error` | Yes |
+| `captureException` / `captureError` | `warning` | No |
+| `captureEvent` | `fatal` | Yes |
+| `captureEvent` | `error` | Yes |
+| `captureEvent` | `warning` | No |
+| `captureMessage` | `fatal` | No |
+| `captureMessage` | `error` | No |
+| `captureMessage` | `warning` | No |
+
+</SpecSection>
+
+<SpecSection id="session-modes" status="stable" since="1.1.0">
+
+### Session Modes
+
+SDKs **SHOULD** default to the session mode most appropriate for the language ecosystem:
+
+**User-mode** _(application-mode)_:
+- Typically a single session from application start to quit.
+- (since 1.3.1) On mobile, sessions **MAY** end when the app is backgrounded for over 30 seconds.
+- Sessions span multiple hubs/threads.
+- Session duration is meaningful (typically minutes).
+
+**Server-mode** _(request-mode)_:
+- One session per HTTP request or RPC call.
+- High volume — sessions **SHOULD** be pre-aggregated.
+- Sessions are attached to a single hub/concurrency unit.
+- Timing information is typically not useful.
+
+When using user-mode, a single session **SHOULD** start at application initialization and persist through the runtime. When using server-mode, no application-wide session **SHOULD** be started — sessions are started/ended per request by integrations.
+
+(since 1.3.0) If an SDK can detect that an application is better served by session aggregates, it **MUST NOT** report an application-wide session. The application-wide session may still be created during initialization but **MUST** be aborted and never sent to Sentry.
+
+</SpecSection>
+
+<SpecSection id="pre-aggregation" status="stable" since="1.2.0">
+
+### Pre-aggregation
+
+Server-mode SDKs **SHOULD** pre-aggregate closed sessions before sending to Sentry. When a session closes and has not been sent upstream (its `init` flag would be `true`), it is eligible for aggregation:
+
+1. Round the `started` timestamp down to the minute.
+2. Aggregate into the bucket identified by the rounded timestamp and `did`.
+3. Increment the count for the session's terminal status. Use `errored` for sessions with `exited` status and non-zero `errors` count.
+
+(since 1.3.0) SDKs **SHOULD** use a periodic session flusher (every 60 seconds) that sends the aggregated `sessions` envelope item. When a client is closed or flushed, the session flusher **MUST** also be flushed before the transport is closed.
+
+</SpecSection>
+
+<SpecSection id="session-update-filtering" status="stable" since="1.4.0">
+
+### Session Update Filtering
+
+When events are dropped by filtering mechanisms (sample rate, rate limiting, `beforeSend`, event processors, or ignored exception types), the session update behavior depends on the drop reason:
+
+- Events dropped due to **sampling** or **rate limiting** **SHOULD** still update the session — the event was dropped to save quota but represents something the developer cares about.
+- Events dropped for **other reasons** (beforeSend, event processors, ignored types) **SHOULD NOT** update the session — the developer chose to ignore them.
+
+(since 1.4.1) Rate limited events **SHOULD** update the session despite being dropped.
+
+If the event has been dropped but the session was updated, the session update **SHOULD** be sent to the server without the event in case the session changed from healthy to errored or from any state to crashed (for user-attended sessions).
+
+For the exact position of the session update relative to these filters, see the [event pipeline](/sdk/foundations/client/#event-pipeline) in the Client spec, which is the authoritative ordering. In short: the session update sits after `beforeSend` and before sampling, so developer-controlled filters run first and quota-saving drops run after.
+
+</SpecSection>
+
+<SpecSection id="session-updates" status="stable" since="1.1.0">
+
+### Session Updates and Sending
+
+SDKs **SHOULD** automatically update the current session whenever data is captured, incrementing the `errors` count or updating the session based on the distinct ID. The update happens after `beforeSend` and before sampling — see the [event pipeline](/sdk/foundations/client/#event-pipeline) for its exact position.
+
+SDKs **SHOULD** aim to minimize the number of envelopes sent upstream.
+
+Server-mode SDKs **SHOULD** use the periodic session flusher with pre-aggregation. User-mode SDKs **MAY** send session updates alongside captured events in the same envelope. The final session update **MAY** be batched.
+
+The `init` flag **MUST** be set correctly for the first transmission of the session. Session metadata **MUST** be immutable after the initial transmission.
+
+SDKs **SHOULD** send session updates in the same envelope as crash events when transitioning to `crashed`. This ensures both arrive together over unreliable networks.
+
+</SpecSection>
+
+---
+
+## Wire Format
+
+<SpecSection id="session-update-payload" status="stable" since="1.0.0">
+
+### Session Update Payload
+
+A session update is sent as a `session` envelope item containing a JSON object. Multiple `session` envelope items **MAY** appear in a single envelope. Ingestion may limit the maximum number of items per envelope.
+
+| Field | Type | Required | Since | Description |
+|-------|------|----------|-------|-------------|
+| `sid` | String | **OPTIONAL** | 1.0.0 | Session ID (UUID, client-generated). **MAY** be skipped if initial state is `exited`. |
+| `did` | String | **OPTIONAL** | 1.0.0 | Distinct ID (device or user ID). Automatically hashed before storage. |
+| `seq` | Number | **OPTIONAL** | 1.0.0 | Logical clock. Defaults to current UNIX timestamp in milliseconds. Forced to `0` when `init` is `true`. |
+| `timestamp` | String | **OPTIONAL** | 1.0.0 | ISO DateTime of when the update occurred. Defaults to current UTC time. Called `received` in the data model. |
+| `started` | String | **REQUIRED** | 1.0.0 | ISO DateTime of when the session started. |
+| `init` | Boolean | **OPTIONAL** | 1.0.0 | `true` for the first event of the session. Default: `false`. |
+| `duration` | Number | **OPTIONAL** | 1.0.0 | Session duration in seconds (float). Inactive time **MAY** be subtracted. |
+| `status` | String | **OPTIONAL** | 1.0.0 | Session status. Default: `ok`. One of: `ok`, `exited`, `crashed`, `abnormal`, or (since 1.6.0) `unhandled`. |
+| `errors` | Number | **OPTIONAL** | 1.0.0 | Running error count. Default: `0`. **MUST** be incremented on crash. |
+| `abnormal_mechanism` | String | **OPTIONAL** | 1.5.0 | Mechanism that caused `abnormal` status (e.g., ANR detection). Default: `none`. |
+| `attrs` | Object | **REQUIRED** | 1.0.0 | Session attributes. See [Session Attributes](#session-attributes). |
+
+#### Session Attributes
+
+| Field | Type | Required | Since | Description |
+|-------|------|----------|-------|-------------|
+| `release` | String | **REQUIRED** | 1.0.0 | Release version (suggested format: `my-project-name@1.0.0`). |
+| `environment` | String | **OPTIONAL** | 1.0.0 | Environment name. |
+| `ip_address` | String | **OPTIONAL** | 1.0.0 | User IP address for filtering. Not persisted. Auto-filled if not set. |
+| `user_agent` | String | **OPTIONAL** | 1.0.0 | User agent string for filtering. Not persisted. |
+
+</SpecSection>
+
+<SpecSection id="session-aggregates-payload" status="stable" since="1.2.0">
+
+### Session Aggregates Payload
+
+For server-mode sessions, SDKs **SHOULD** send aggregated session counts as a `sessions` envelope item. Multiple `sessions` envelope items **MAY** appear in a single envelope. Ingestion may limit the maximum number of items per envelope.
+
+| Field | Type | Required | Since | Description |
+|-------|------|----------|-------|-------------|
+| `aggregates` | Array | **REQUIRED** | 1.2.0 | Array of aggregate groups. See below. |
+| `attrs` | Object | **REQUIRED** | 1.2.0 | Session attributes (same as individual session `attrs`). |
+
+#### Aggregate Group Fields
+
+| Field | Type | Required | Since | Description |
+|-------|------|----------|-------|-------------|
+| `started` | String | **REQUIRED** | 1.2.0 | Timestamp rounded down to the minute. ISO DateTime. |
+| `did` | String | **OPTIONAL** | 1.2.0 | Distinct user ID for this group. |
+| `exited` | Number | **OPTIONAL** | 1.2.0 | Sessions with `exited` status and zero errors. |
+| `abnormal` | Number | **OPTIONAL** | 1.2.0 | Sessions with `abnormal` status. |
+| `unhandled` | Number | **OPTIONAL** | 1.6.0 | Sessions with `unhandled` status. |
+| `crashed` | Number | **OPTIONAL** | 1.2.0 | Sessions with `crashed` status. |
+| `errored` | Number | **OPTIONAL** | 1.2.0 | Sessions with `exited` status and non-zero `errors` count. |
+
+</SpecSection>
+
+---
+
+## Public API
+
+<SpecSection id="start-session" status="stable" since="1.1.0">
+
+### Start Session
+
+SDKs **MUST** expose a function to start a session:
+
+```
+startSession() -> void
+```
+
+Stores a session on the current scope and starts tracking it. This implicitly ends any existing session.
+
+(since 1.3.0) Sessions **SHOULD** be enabled by default for the global hub/client initialized by `Sentry.init()`, and disabled by default for manually created clients.
+
+Naming **SHOULD** follow the SDK's language conventions:
+- `Sentry.startSession()` (JavaScript)
+- `Hub.start_session()` (Python)
+
+</SpecSection>
+
+<SpecSection id="end-session" status="stable" since="1.1.0">
+
+### End Session
+
+SDKs **MUST** expose a function to end a session:
+
+```
+endSession() -> void
+```
+
+Ends the session, setting an appropriate `status` and `duration`, and enqueues it for sending to Sentry. SDKs **MUST NOT** send further updates for an ended session.
+
+Naming **SHOULD** follow the SDK's language conventions:
+- `Sentry.endSession()` (JavaScript)
+- `Hub.end_session()` (Python)
+
+</SpecSection>
+
+<SpecSection id="auto-session-tracking" status="stable" since="1.1.0">
+
+### Auto Session Tracking
+
+SDKs **SHOULD** accept an `autoSessionTracking` configuration option (boolean, default varies by SDK).
+
+When enabled, the SDK automatically starts and ends sessions based on the session mode. SDKs **MAY** also expose `startAutoSessionTracking()` / `stopAutoSessionTracking()` for runtime control.
+
+Naming **SHOULD** follow the SDK's language conventions:
+- `autoSessionTracking` (JavaScript)
+- `auto_session_tracking` (Python)
+
+</SpecSection>
+
+---
+
+## Examples
+
+### Session Update
+
+```json
+{
+  "sid": "7c7b6585-f901-4351-bf8d-02711b721929",
+  "did": "optional distinct user id",
+  "init": true,
+  "started": "2020-02-07T14:16:00Z",
+  "duration": 60,
+  "status": "exited",
+  "attrs": {
+    "release": "my-project-name@1.0.0",
+    "environment": "production"
+  }
+}
+```
+
+### Session Aggregates
+
+```json
+{
+  "aggregates": [
+    {
+      "started": "2020-02-07T14:16:00Z",
+      "exited": 123
+    },
+    {
+      "started": "2020-02-07T14:16:00Z",
+      "did": "optional distinct user id",
+      "exited": 12,
+      "errored": 3
+    }
+  ],
+  "attrs": {
+    "release": "my-project-name@1.0.0",
+    "environment": "development"
+  }
+}
+```
+
+### Full Envelope
+#### Single Session
+
+```
+{}
+{"type":"session"}
+{"sid":"7c7b6585-f901-4351-bf8d-02711b721929","init":true,"started":"2020-02-07T14:16:00Z","status":"ok","attrs":{"release":"my-project-name@1.0.0"}}
+```
+
+#### Aggregated Sessions
+
+```
+{}
+{"type":"sessions"}
+{"aggregates":[{"started":"2020-02-07T14:16:00Z","exited":123}],"attrs":{"release":"my-project-name@1.0.0"}}
+```
+
+---
+
+## Changelog
+
+<SpecChangelog />

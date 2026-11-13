@@ -1,0 +1,56 @@
+---
+title: HTTPX
+description: "Learn how to set up Sentry's HTTPX integration and how to capture outgoing HTTP requests as spans."
+---
+
+Sentry's [HTTPX](https://www.python-httpx.org/) integration instruments outgoing HTTP requests using either the sync or the async HTTPX clients.
+
+<Include name="python-stream-mode-general-callout.mdx" />
+
+## Prerequisites
+
+You need:
+- A Sentry [account](https://sentry.io/signup/) and [project](/product/projects/)
+- Your application up and running
+- HTTPX `0.16+`
+- Python:
+  - `3.6+` (SDK &lt;3.0)
+  - `3.7+` (SDK 3.0+)
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install & Configure
+
+Follow our <PlatformLink to="/">quick start guide</PlatformLink> to set up Sentry in your Python application (make sure to enable tracing).
+Sentry's HTTPX integration is enabled automatically if you have the `httpx` package installed.
+
+## Verify Your Setup
+
+To verify that Sentry captures your HTTPX requests, add this code to your app, which will create a transaction called `testing_sentry` in the [Traces](https://sentry.io/orgredirect/organizations/:orgslug/explore/traces/) section and create spans for the outgoing HTTP requests:
+
+```python
+import sentry_sdk
+import httpx
+
+def main():
+    # same as in the Python quick start guide (https://docs.sentry.io/platforms/python)
+    sentry_sdk.init(...)
+
+    # or sentry_sdk.traces.start_span(name="testing_sentry", parent_span=None) in stream mode
+    with sentry_sdk.start_transaction(name="testing_sentry"):
+        r1 = httpx.get("https://sentry.io/")
+        r2 = httpx.post("http://httpbin.org/post")
+
+main()
+```
+
+## Next Steps
+
+<PlatformContent includePath="getting-started-next-steps" />
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK or integration?">
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+</Expandable>
+
+</StepConnector>

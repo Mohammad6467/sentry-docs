@@ -1,0 +1,122 @@
+---
+title: Ariadne
+description: "Learn about importing the Ariadne GraphQL integration and how it captures GraphQL errors."
+---
+
+The Ariadne integration captures errors from the
+[Ariadne GraphQL library](https://ariadnegraphql.org/), which can then be viewed
+in [Sentry](https://sentry.io).
+
+## Install
+
+To get started, install `sentry-sdk` from PyPI.
+
+```bash {tabTitle:pip}
+pip install "sentry-sdk"
+```
+```bash {tabTitle:uv}
+uv add "sentry-sdk"
+```
+
+## Configure
+
+If you have the `ariadne` package in your dependencies, the Ariadne integration will be enabled automatically when you initialize the Sentry SDK.
+
+<PlatformContent includePath="getting-started-config" />
+
+## Verify
+
+Create a file called `app.py` with the following contents:
+
+```python
+from ariadne import QueryType, gql, make_executable_schema
+from ariadne.asgi import GraphQL
+
+sentry_sdk.init(...)  # same as above
+
+type_defs = gql(
+    """
+    type Query {
+        hello: String!
+    }
+"""
+)
+
+query = QueryType()
+
+@query.field("hello")
+def resolve_hello(*_):
+    1 / 0
+    return "Hello!"
+
+schema = make_executable_schema(type_defs, query)
+app = GraphQL(schema, debug=True)
+```
+
+Make sure you have `uvicorn` installed:
+
+```bash
+pip install uvicorn
+```
+
+And finally run your GraphQL web server with:
+
+```bash
+uvicorn app:app
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. You should
+see the GraphiQL graphical user interface.
+
+Enter `{ hello }` into the query field then press the "Execute query" button. Your
+web app will be queried and will encounter the `ZeroDivisionError` error we've
+snuck into the `resolve_hello` resolver function.
+
+This will create a corresponding `GraphQLError` in the Issues section of
+[sentry.io](https://sentry.io). It will take a couple of moments for the data to appear in [Sentry](https://sentry.io).
+
+## Options
+
+The Ariadne integration can capture request and response payload for each GraphQL
+error that happens. Since these may contain sensitive data, no request and response
+data will be attached by default.
+
+To attach this data, use the <PlatformLink to="/configuration/options/#data_collection">`data_collection`</PlatformLink> option. The `graphql` key controls the query document and its variables in the request
+payload, and the `outgoing_response` entry in `http_bodies` controls the response
+payload:
+
+```python
+sentry_sdk.init(
+    # same options as above
+    data_collection={
+        "graphql": {"document": True, "variables": True},
+        "http_bodies": ["incoming_request", "outgoing_request", "outgoing_response"],
+    },
+)
+```
+
+These are also the defaults when you pass a `data_collection` dictionary, so you only
+need to set the keys you want to change. See <PlatformLink to="/data-management/data-collected/">Data Collected</PlatformLink> for all available keys.
+
+Alternatively, you can initialize the SDK with the <PlatformLink to="/configuration/options/#send_default_pii">`send_default_pii`</PlatformLink> option set to `True`, though `send_default_pii` will be removed in version 3.0 of the SDK:
+
+```python
+sentry_sdk.init(
+    # same options as above
+    send_default_pii=True,
+)
+```
+
+<Alert level="warning" title="Note">
+
+Since `send_default_pii` is a global SDK option, setting it to `True` will affect all integrations, not just Ariadne. Please make sure to
+[scrub sensitive data](/platforms/python/data-management/sensitive-data/)
+from events before enabling this option. With `data_collection`, you can enable
+only the categories you need instead.
+
+</Alert>
+
+## Supported Versions
+
+- ariadne: 0.20+
+- Python: 3.8+

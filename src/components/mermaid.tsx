@@ -1,0 +1,115 @@
+'use client';
+import {useTheme} from 'next-themes';
+import {useEffect, useState} from 'react';
+
+export default function Mermaid() {
+  const [isDoneRendering, setDoneRendering] = useState(false);
+  const {resolvedTheme: theme} = useTheme();
+
+  useEffect(() => {
+    const renderMermaid = async () => {
+      const mermaidBlocks =
+        document.querySelectorAll<HTMLDivElement>('.language-mermaid');
+      if (mermaidBlocks.length === 0) return;
+
+      // Mermaid uses the Constructable Stylesheets API (new CSSStyleSheet()),
+      // which is not supported in some in-app browsers (e.g. Google iOS app).
+      // Bail out early so the raw diagram source remains readable as a code block.
+      try {
+        new CSSStyleSheet(); // eslint-disable-line no-new
+      } catch {
+        return;
+      }
+
+      const escapeHTML = (str: string) =>
+        str.replace(
+          /[&<>"']/g,
+          match =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            })[match] || match
+        );
+
+      const {default: mermaid} = await import('mermaid/dist/mermaid.esm.min.mjs');
+      const svgPanZoom = (await import('svg-pan-zoom')).default;
+
+      // Create light and dark versions
+      mermaidBlocks.forEach(block => {
+        const code = block.textContent ?? '';
+        block.innerHTML = escapeHTML(code);
+        block.style.backgroundColor = 'transparent';
+        block.classList.add('light');
+
+        const parentCodeTabs = block.closest('.code-tabs-wrapper');
+        const darkBlock = block.cloneNode(true) as HTMLDivElement;
+        darkBlock.classList.replace('light', 'dark');
+
+        if (parentCodeTabs) {
+          parentCodeTabs.innerHTML = '';
+          parentCodeTabs.append(block, darkBlock);
+        } else {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'mermaid-theme-wrapper';
+          block.parentNode?.insertBefore(wrapper, block);
+          wrapper.append(block, darkBlock);
+        }
+      });
+
+      // Render both themes
+      try {
+        mermaid.initialize({startOnLoad: false, theme: 'default'});
+        await mermaid.run({nodes: document.querySelectorAll('.language-mermaid.light')});
+
+        mermaid.initialize({startOnLoad: false, theme: 'dark'});
+        await mermaid.run({nodes: document.querySelectorAll('.language-mermaid.dark')});
+      } catch {
+        // If rendering fails, still mark rendering done so the display CSS is
+        // injected — this hides the duplicate dark/light clone and leaves one
+        // readable copy of the raw diagram source in the DOM.
+        setDoneRendering(true);
+        return;
+      }
+
+      // Initialize pan/zoom for all SVGs (including hidden ones)
+      document.querySelectorAll('.language-mermaid svg').forEach(svg => {
+        const svgElement = svg as SVGSVGElement;
+        const rect = svgElement.getBoundingClientRect();
+
+        if (rect.width > 0 && rect.height > 0) {
+          svgElement.setAttribute('width', rect.width.toString());
+          svgElement.setAttribute('height', rect.height.toString());
+        }
+
+        svgPanZoom(svgElement, {
+          zoomEnabled: true,
+          panEnabled: true,
+          controlIconsEnabled: false,
+          fit: true,
+          center: true,
+          minZoom: 0.1,
+          maxZoom: 10,
+          zoomScaleSensitivity: 0.2,
+        });
+      });
+
+      setDoneRendering(true);
+    };
+
+    renderMermaid();
+  }, []);
+
+  return isDoneRendering ? (
+    <style>
+      {`
+        .language-mermaid.light { display: ${theme === 'dark' ? 'none' : 'block'}; }
+        .language-mermaid.dark { display: ${theme === 'dark' ? 'block' : 'none'}; }
+        .dark .language-mermaid.light { display: none; }
+        .dark .language-mermaid.dark { display: block; }
+      `}
+    </style>
+  ) : null;
+}

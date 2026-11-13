@@ -1,0 +1,13 @@
+```csharp
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.User = new SentryUser();
+});
+```
+
+```fsharp
+SentrySdk.ConfigureScope(
+  fun scope ->
+    scope.User <- SentryUser()
+  )
+```

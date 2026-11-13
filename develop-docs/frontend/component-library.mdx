@@ -1,0 +1,38 @@
+---
+title: Component Library
+sidebar_order: 40
+---
+
+<Alert>
+  Jump straight in! Visit <Link to="https://sentry.io/orgredirect/organizations/:orgslug/stories/"><code>/stories/</code></Link> on your existing Sentry installation.
+</Alert>
+
+## What is Scraps?
+
+Scraps is Sentry's design system, the **S**tandardized **C**ollection of **R**eusable **A**ssets and **P**atterns for **S**entry. It includes the core primitive React components, hooks, and design patterns that we use to build Sentry, maintained by the Design Engineering team. `/stories` also includes components and hooks for specific product verticals, maintained by the teams responsible for those product verticals.
+
+Each story describes how to use a React component or hook, its public API, intended behavior, and common or recommended usage patterns.
+
+## Accessing Stories
+
+Stories is a custom docs framework served under the `/stories` path inside the main Sentry app. It loads any `.mdx` and `.stories.tsx` files in the codebase.
+
+- **Prod Access**<br />
+    Log in and then visit [`/stories/`](https://sentry.io/orgredirect/organizations/:orgslug/stories/) on your existing Sentry Organization. This works the same on sentry.io or for self-hosted installations.
+
+- **Dev Access**<br />
+    Whether you are using `pnpm dev-ui` to start a development server, or `sentry devserver` to spin up all the services locally, you can access Stories by logging in and changing the path from `/issues/` (the default landing page) to `/stories/`.
+
+## Contributing to Stories
+
+For information on how to contribute to Stories, please see the [Contributing](https://sentry.sentry.io/stories/core/contributing/) section of the Stories documentation.
+
+## Ownership
+
+Stories for core components are owned by the Design Engineering team. Stories for general components are not nessicarily maintained by the original author or team of that component—if you are reading a story and notice a mistake or omission, consider it an opportunity to leave the docs in better shape than you found them! 
+
+The Design Engineering team is always available in the `#discuss-design-engineering` channel on Slack for questions or general feedback.
+
+## Improving Stories
+
+All code for the stories framework is built and maintained by Sentry's Design Engineering team. However, this tool is for all of us, so contributions are welcome! If you have ideas to improve the experience of discovering, reading, writing, or organizing stories, please share in the `#discuss-design-engineering` channel on Slack.

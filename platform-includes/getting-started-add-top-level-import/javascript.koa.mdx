@@ -1,0 +1,25 @@
+```javascript {tabTitle:CommonJS}
+// Ensure to require this before requiring any other modules!
+require('./instrument.js')
+
+const Koa = require('koa');
+
+const app = new Koa();
+
+// Add your routes, etc.
+
+app.listen(3030);
+```
+
+```javascript {tabTitle:ESM}
+// Ensure to import this before importing any other modules!
+import './instrument.js'
+
+import Koa from 'koa';
+
+const app = new Koa();
+
+// Add your routes, etc.
+
+app.listen(3030)
+```

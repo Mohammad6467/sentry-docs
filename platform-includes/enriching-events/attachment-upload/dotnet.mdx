@@ -1,0 +1,19 @@
+```csharp
+// Global Scope
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.AddAttachment("log.txt");
+});
+
+// Local Scope
+SentrySdk.CaptureMessage("my message", scope =>
+{
+    scope.AddAttachment("log.txt");
+});
+
+// Clear all attachments in the global scope
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.ClearAttachments();
+});
+```

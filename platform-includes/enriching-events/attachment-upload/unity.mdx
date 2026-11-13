@@ -1,0 +1,11 @@
+```csharp
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.AddAttachment(Path.Combine(Application.persistentDataPath, "file.log"));
+});
+
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.ClearAttachments();
+});
+```

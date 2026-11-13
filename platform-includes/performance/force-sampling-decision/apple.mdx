@@ -1,0 +1,28 @@
+```swift {tabTitle:Swift}
+import Sentry
+
+let transactionContext = TransactionContext(name:"GET /search", operation:"http", sampled: .yes)
+let transaction = SentrySDK.startTransaction(transactionContext: transactionContext)
+```
+
+```objc {tabTitle:Objective-C}
+@import Sentry;
+
+// IsSampled -> yes
+SentryTransactionContext *transactionContext = [[TransactionContext alloc] initWithName:@"GET /search"
+                                                                              operation:@"http"
+                                                                                sampled:kSentrySampleDecisionYes];
+
+id<SentrySpan> transaction = [SentrySDK startTransactionWithContext:transactionContext];
+```
+
+```objc {tabTitle:Objective-C (SentryObjC)}
+#import <SentryObjC/SentryObjC.h>
+
+// IsSampled -> yes
+SentryObjCTransactionContext *transactionContext = [[SentryObjCTransactionContext alloc] initWithName:@"GET /search"
+                                                                              operation:@"http"
+                                                                                sampled:SentryObjCSampleDecisionYes];
+
+SentryObjCSpan *transaction = [SentryObjCSDK startTransactionWithContext:transactionContext];
+```

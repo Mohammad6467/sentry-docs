@@ -1,0 +1,88 @@
+name: Codeowner assignment
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to evaluate
+        required: true
+        type: number
+      dry_run:
+        description: Log reviewer decisions without requesting reviewers
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  codeowner_assignment:
+    name: Codeowner assignment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.action != 'edited' ||
+      github.event.changes.body != null
+    concurrency:
+      group: >-
+        codeowner-assignment-${{ github.event.pull_request.number || inputs.pr_number }}-${{
+        github.event_name == 'workflow_dispatch' && inputs.dry_run && github.run_id ||
+        github.event.action == 'edited' && github.run_id || 'assignment' }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        id: token
+        with:
+          app-id: ${{ vars.CODEOWNER_ASSIGNMENT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CODEOWNER_ASSIGNMENT_PRI_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            sentry-docs
+          permission-members: read
+          permission-pull-requests: write
+
+      - name: Resolve trusted base commit
+        id: base
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          base_sha="$EVENT_BASE_SHA"
+          if [[ -z "$base_sha" ]]; then
+            base_sha=$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.base.sha')
+          fi
+          if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid base commit SHA" >&2
+            exit 1
+          fi
+          echo "sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.base.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        with:
+          node-version-file: package.json
+
+      - name: Evaluate CODEOWNERS and assign reviewers
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          node scripts/assign-pr-reviewers.mjs "${args[@]}"

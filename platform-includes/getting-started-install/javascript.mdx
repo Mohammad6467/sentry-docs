@@ -1,0 +1,33 @@
+We recommend installing Sentry via a package manager. If that isn't an option for you, you can use the [Loader Script](/platforms/javascript/install/loader/) or a CDN bundle.
+
+#### Option 1: Package Manager (Recommended)
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+```bash {tabTitle:npm}
+npm install @sentry/browser --save
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/browser
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/browser
+```
+
+#### Option 2: Loader Script
+
+In Sentry, go to
+**Settings > Projects > (select project) > SDK Setup > [Loader Script](https://sentry.io/orgredirect/organizations/:orgslug/settings/projects/:projectId/loader-script/)**.
+Enable Tracing, Session Replay, Logs and Metrics, and User Feedback. Then, copy the script tag and place it before all other scripts in your app.
+
+#### Option 3: CDN Bundle
+
+Sentry provides bundles with different feature combinations. In this guide, we'll use the [full bundle with all features](/platforms/javascript/install/loader/#full-bundle-with-all-features). Copy the script tag and place it before all other scripts in your app.
+
+<Alert>
+  If you're updating your Sentry SDK to the latest version, check out our
+  <PlatformLink to="/migration/v10-to-v11/">migration guide</PlatformLink> to
+  learn more about breaking changes.
+</Alert>

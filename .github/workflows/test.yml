@@ -1,4 +1,4 @@
-name: Build and Test
+name: CI
 
 on:
   push:
@@ -6,80 +6,102 @@ on:
   pull_request:
     branches: [master]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
-  job_build:
-    name: Build
-    runs-on: ubuntu-latest
-    env:
-      JEKYLL_ENABLE_PLATFORM_API: false
-    steps:
-      - uses: actions/checkout@v2
-      - uses: volta-cli/action@v1
-      - uses: actions/cache@v2
-        id: cache
-        with:
-          path: ${{ github.workspace }}/node_modules
-          key: ${{ runner.os }}-${{ hashfiles('**/yarn.lock') }}
-      - run: yarn install --frozen-lockfile
-        if: steps.cache.outputs.cache-hit != 'true'
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            .cache
-            public
-          key: ${{ runner.os }}-${{ hashfiles('**/yarn.lock') }}-gatsby-build
-      - name: yarn build
-        run: yarn build
-
-      - uses: untitaker/hyperlink@0.1.13
-        with:
-          args: public/ --sources src/ --check-anchors
-
   job_lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: volta-cli/action@v1
-      - uses: actions/cache@v2
-        id: cache
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Internal github app token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        continue-on-error: true
         with:
-          path: ${{ github.workspace }}/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
-      - run: yarn install --frozen-lockfile
-        if: steps.cache.outputs.cache-hit != 'true'
-      - name: Run Linter
-        run: yarn lint
+          client-id: ${{ vars.SENTRY_INTERNAL_APP_ID }}
+          private-key: ${{ secrets.SENTRY_INTERNAL_APP_PRIVATE_KEY }}
+
+      - uses: pnpm/action-setup@02f6c237bd2518259fed6c71566509edfb3f2b74 # v4
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        id: setup-node
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+            ${{ github.workspace }}/.eslintcache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      # Generate next-env.d.ts (in .gitignore); required before type-check
+      - run: pnpm next typegen
+        env:
+          NEXT_TYPEGEN: 'true'
+
+      # Additional checks
+      - run: pnpm lint:ts
+
+      # Run automatic fixes (run prettier apart from eslint to also fix mdx files)
+      - run: pnpm lint:prettier:fix
+      - run: pnpm lint:eslint:fix --cache
+
+      # Check (and error) for dirty working tree for forks
+      # Reason being we need a different token to auto commit changes and
+      # forks do not have access to said token
+      - name: Check for dirty git working tree (forks)
+        if: steps.token.outcome != 'success' && github.ref != 'refs/heads/master'
+        run: |
+          git diff --quiet || (echo '::error ::lint produced file changes, run linter locally and try again' && exit 1)
+
+      # If working tree is dirty, commit and update if we have a token
+      - name: Commit any eslint fixed files
+        if: steps.token.outcome == 'success' && github.ref != 'refs/heads/master'
+        uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
+        with:
+          github-token: ${{ steps.token.outputs.token }}
+
+  job_typos:
+    name: Check Typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check spelling with typos
+        uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
 
   job_test:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: volta-cli/action@v1
-      - uses: actions/cache@v2
-        id: cache
-        with:
-          path: ${{ github.workspace }}/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
-      - run: yarn install --frozen-lockfile
-        if: steps.cache.outputs.cache-hit != 'true'
-      - name: Run Tests
-        run: yarn test
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-  job_test_build:
-    name: Build (env=test)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: volta-cli/action@v1
-      - uses: actions/cache@v2
-        id: cache
+      - uses: pnpm/action-setup@02f6c237bd2518259fed6c71566509edfb3f2b74 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          path: ${{ github.workspace }}/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
-      - run: yarn install --frozen-lockfile
-        if: steps.cache.outputs.cache-hit != 'true'
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Run Tests
-        run: yarn build:test
+        run: pnpm test

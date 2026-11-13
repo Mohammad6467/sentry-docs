@@ -1,0 +1,223 @@
+---
+title: NLog
+sdk: sentry.dotnet.nlog
+description: "Learn about Sentry's .NET integration with NLog."
+---
+
+Sentry provides an integration with `NLog` through the [Sentry.NLog NuGet package](https://www.nuget.org/packages/Sentry.NLog).
+
+## Overview of the features
+
+- Store log messages as breadcrumbs
+- Send events to Sentry
+- Send structured logs to Sentry
+
+Two separate settings define the minimum log level to keep the log entry as a `Breadcrumb` and to send an `Event` to Sentry. The events include any stored breadcrumb on that [scope](enriching-events/scopes/).
+
+By default, Sentry will keep any message with log level `Info` or higher as a `Breadcrumb`.
+
+The default value to report a log entry as an event to Sentry is `Error`.
+
+This means that out of the box, any `Error` call will create an `Event` which will include all log messages of level `Info`, `Warn`, `Error`, and `Fatal` stored as breadcrumbs.
+
+Additionally, when enabled, log messages are sent to Sentry as [Structured Logs](logs/).
+
+## Install
+
+Add the Sentry dependency:
+
+```powershell {tabTitle:Package Manager}
+Install-Package Sentry.NLog -Version {{@inject packages.version('sentry.dotnet.nlog') }}
+```
+
+```shell {tabTitle:.NET Core CLI}
+dotnet add package Sentry.NLog -v {{@inject packages.version('sentry.dotnet.nlog') }}
+```
+
+This package extends `Sentry` main SDK. That means that besides the logging related features, through this package you'll also get access to all API and features available in the main `Sentry` SDK.
+
+## Configure
+
+<Alert title="NLog Layouts">
+
+For more information on how to dynamically set event data via `NLog.config`, see NLog's [layout renderer documentation](https://nlog-project.org/config/?tab=layout-renderers).
+
+</Alert>
+
+If another integration already initializes Sentry, add the NLog target without reinitializing the SDK. Set `EnableLogs = true` on the options used by that integration to send structured logs.
+
+```csharp
+using NLog;
+using NLog.Config;
+
+var configuration = new LoggingConfiguration();
+configuration.AddSentry(options =>
+    {
+        options.InitializeSdk = false;
+        // Optionally specify a separate format for message
+        options.Layout = "${message}";
+        // Optionally specify a separate format for breadcrumbs
+        options.BreadcrumbLayout = "${logger}: ${message}";
+
+        // Debug and higher are stored as breadcrumbs (default is Info)
+        options.MinimumBreadcrumbLevel = LogLevel.Debug;
+        // Error and higher is sent as event (default is Error)
+        options.MinimumEventLevel = LogLevel.Error;
+
+        // Send the logger name as a tag
+        options.AddTag("logger", "${logger}");
+
+        // All Sentry Options are accessible here.
+    });
+LogManager.Configuration = configuration;
+```
+
+It's also possible to initialize the SDK through the NLog integration (as opposed to using `SentrySdk.Init`).
+This is useful when NLog is the only integration being used in your application. To initialize the Sentry SDK through the NLog integration, provide it with the DSN:
+
+
+```csharp
+var configuration = new LoggingConfiguration();
+configuration.AddSentry(o =>
+    {
+        // The NLog integration will initialize the SDK if DSN is set:
+        o.Dsn = "___PUBLIC_DSN___";
+        o.EnableLogs = true;
+    });
+LogManager.Configuration = configuration;
+```
+
+<Alert level="warning" title="Note">
+
+Initialize the SDK once. `InitializeSdk` defaults to `true`, and initialization can resolve a DSN from `SENTRY_DSN` even when you omit `Dsn`. If another integration or `SentrySdk.Init` owns initialization, set `InitializeSdk = false`. Omitting the DSN doesn't prevent reinitialization: the target either uses `SENTRY_DSN` and replaces the existing SDK configuration, or fails to initialize because no DSN was found.
+
+</Alert>
+
+### Minimum log level
+
+Two log levels are used to configure this integration (see options below). One will configure the lowest level required for a log message to become an event (`MinimumEventLevel`) sent to Sentry. The other option (`MinimumBreadcrumbLevel`) configures the lowest level a message has to be to become a breadcrumb. Breadcrumbs are kept in memory (by default the last 100 records) and are sent with events. For example, by default, if you log 100 entries with `logger.Info` or `logger.Warn`, no event is sent to Sentry. If you then log with `logger.Error`, an event is sent to Sentry which includes those 100 `Info` or `Warn` messages. For this to work, `SentryTarget` needs to receive **all** log entries in order to decide what to keep as breadcrumb or sent as event. Make sure to set the `NLog` `LogLevel` configuration to a value lower than what you set for the `MinimumBreadcrumbLevel` and `MinimumEventLevel` to make sure `SentryTarget` receives these log messages.
+
+The SDK can also be configured via `NLog.config` XML file:
+
+
+```xml {tabTitle:NLog.config}
+<?xml version="1.0" encoding="utf-8" ?>
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+  <extensions>
+    <add assembly="Sentry.NLog" />
+  </extensions>
+
+  <targets>
+    <target xsi:type="Sentry" name="sentry"
+            dsn="___PUBLIC_DSN___"
+            layout="${message}"
+            environment="Development"
+            breadcrumbLayout="${message}"
+            minimumBreadcrumbLevel="Debug"
+            minimumEventLevel="Error">
+
+      <!-- Advanced options can be configured here-->
+      <options
+          enableLogs="true"
+          sendDefaultPii="true"
+          attachStacktrace="false"
+          shutdownTimeoutSeconds="5"
+          debug="false"
+        >
+        <!--Advanced options can be specified as attributes or elements-->
+        <includeEventDataOnBreadcrumbs>true</includeEventDataOnBreadcrumbs>
+      </options>
+
+      <!--Optionally add any desired additional Tags that will be sent with every message -->
+      <tag name="exception" layout="${exception:format=shorttype}" includeEmptyValue="false" />
+
+      <!--Optionally add any desired additional Data that will be sent with every message -->
+      <contextproperty name="threadid" layout="${threadid}" includeEmptyValue="true" />
+    </target>
+  </targets>
+
+  <rules>
+    <logger name="*" writeTo="sentry" />
+  </rules>
+</nlog>
+```
+
+### Options
+
+#### MinimumBreadcrumbLevel
+
+A `LogLevel` that indicates the minimum level a log message needs to be in order to become a breadcrumb. By default, this value is `Info`.
+
+#### MinimumEventLevel
+
+A `LogLevel` which indicates the minimum level a log message has to be sent to Sentry as an event. By default this value is `Error`.
+
+#### InitializeSdk
+
+Whether or not this integration should initialize the SDK. If you intend to call `SentrySdk.Init` yourself you should set this flag to `false`.
+
+#### IgnoreEventsWithNoException
+
+To ignore log messages that don't contain an exception.
+
+#### IncludeEventProperties
+
+Determines whether event-level properties will be sent to Sentry as additional data. Defaults to true.
+
+#### IncludeEventPropertiesAsTags
+
+Determines whether event properties will be sent to Sentry as Tags or not. Defaults to false.
+
+#### IncludeEventDataOnBreadcrumbs
+
+Determines whether or not to include event-level data as data in breadcrumbs for future errors. Defaults to false.
+
+#### BreadcrumbLayout
+
+Custom layout for breadcrumbs. See [NLog layout renderers](https://nlog-project.org/config/?tab=layout-renderers) for more.
+
+#### Layout
+
+Layout used to render the message of events sent to Sentry. Defaults to `${message}`.
+
+#### Tags
+
+Any additional tags to apply to each logged message. Tag values can use NLog layouts.
+
+#### User
+
+You can provide a `user` entry matching the following example user. See [Identify Users](enriching-events/identify-user/) for more information.
+
+```xml
+<user
+  id="sample_id"
+  username="sample_username"
+  email="sample@email.com"
+  ipAddress="127.0.0.1">
+ <other name="mood" layout="joyous"/>
+</user>
+```
+
+## Verify
+
+After configuring NLog, send an informational log and an error:
+
+```csharp
+var logger = LogManager.GetCurrentClassLogger();
+logger.Info("Sentry logging verification");
+logger.Error("Sentry error-event verification");
+LogManager.Flush();
+```
+
+With `EnableLogs = true`, the informational message appears in **Logs**. The error message also creates an event in **Issues**. Call `LogManager.Shutdown()` when your application exits to dispose the target and flush pending data.
+
+## Samples
+
+- A [simple example](https://github.com/getsentry/sentry-dotnet/tree/main/samples/Sentry.Samples.NLog).
+- Example of [advanced configuration](configuration/advanced-configuration-example/)
+
+## Next Steps
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup

@@ -1,0 +1,22 @@
+---
+title: Knex
+description: "Adds instrumentation for Knex."
+supportedCategories:
+  - server
+supported:
+  - javascript.electron
+---
+
+_Import name: `Sentry.knexIntegration`_
+
+The `knexIntegration` adds instrumentation for the `knex` library to capture spans using [`@opentelemetry/instrumentation-knex`](https://www.npmjs.com/package/@opentelemetry/instrumentation-knex).
+
+```javascript
+Sentry.init({
+  integrations: [Sentry.knexIntegration()],
+});
+```
+
+## Supported Versions
+
+- `dataloader`: `>=0.10.0 <4`

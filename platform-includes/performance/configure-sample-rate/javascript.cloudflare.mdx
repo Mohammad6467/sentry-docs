@@ -1,0 +1,31 @@
+## Cloudflare Pages
+
+```javascript {filename:functions/_middleware.js}
+import * as Sentry from "@sentry/cloudflare";
+
+export const onRequest = [
+  Sentry.sentryPagesPlugin((context) => ({
+    dsn: "___PUBLIC_DSN___",
+    // To set a uniform sample rate
+    tracesSampleRate: 0.2
+
+    // Alternatively, to control sampling dynamically
+    tracesSampler: samplingContext => { ... }
+  })),
+];
+```
+
+## Cloudflare Workers
+
+```typescript {filename:src/instrument.server.ts}
+import { defineCloudflareOptions } from "@sentry/cloudflare";
+
+export default defineCloudflareOptions((env) => ({
+  dsn: "___PUBLIC_DSN___",
+  // To set a uniform sample rate
+  tracesSampleRate: 0.2
+
+  // Alternatively, to control sampling dynamically
+  tracesSampler: samplingContext => { ... }
+}));
+```

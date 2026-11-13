@@ -1,0 +1,202 @@
+import './type.scss';
+
+import {ReactNode} from 'react';
+import {isDeveloperDocs} from 'sentry-docs/docsSite.mjs';
+import {
+  getCurrentGuide,
+  getCurrentPlatform,
+  getCurrentPlatformOrGuide,
+  nodeForPath,
+} from 'sentry-docs/docTree';
+import {getSdkPageHeading} from 'sentry-docs/sdkPageHeading';
+import {serverContext} from 'sentry-docs/serverContext';
+import {FrontMatter} from 'sentry-docs/types';
+import {PaginationNavNode} from 'sentry-docs/types/paginationNavNode';
+import {isNotNil} from 'sentry-docs/utils';
+import {getUnversionedPath} from 'sentry-docs/versioning';
+
+import {Banner} from '../banner';
+import {Breadcrumbs} from '../breadcrumbs';
+import {buildBreadcrumbs} from '../breadcrumbs/utils';
+import {CodeContextProvider} from '../codeContext';
+import {CopyMarkdownButton} from '../copyMarkdownButton';
+import {DevelopDocsHeader} from '../developDocsHeader';
+import {DocFeedback} from '../docFeedback';
+import {FeatureBadge} from '../featureBadge';
+import {GitHubCTA} from '../githubCTA';
+import {Header} from '../header';
+import Mermaid from '../mermaid';
+import {PaginationNav} from '../paginationNav';
+import {PlatformSdkDetail} from '../platformSdkDetail';
+import {getSdkPackageName} from '../platformSdkPackageName';
+import {RuntimeSelector} from '../runtimeSelector';
+import {Sidebar} from '../sidebar';
+import {SidebarTableOfContents} from '../sidebarTableOfContents';
+import {ReaderDepthTracker} from '../track-reader-depth';
+
+type Props = {
+  children: ReactNode;
+  frontMatter: Omit<FrontMatter, 'slug'>;
+  /** Whether to take all the available width */
+  fullWidth?: boolean;
+  nextPage?: PaginationNavNode;
+  /** Whether to hide the table of contents & sdk details */
+  notoc?: boolean;
+  previousPage?: PaginationNavNode;
+  sidebar?: ReactNode;
+};
+
+export async function DocPage({
+  children,
+  frontMatter,
+  notoc = false,
+  fullWidth = false,
+  sidebar,
+  nextPage,
+  previousPage,
+}: Props) {
+  const {rootNode, path} = serverContext();
+  const currentPlatform = getCurrentPlatform(rootNode, path);
+  const currentGuide = getCurrentGuide(rootNode, path);
+  const platformOrGuide = getCurrentPlatformOrGuide(rootNode, path);
+  const sdkPackage = await getSdkPackageName(platformOrGuide);
+
+  const hasToc = (!notoc && !frontMatter.notoc) || !!(currentPlatform || currentGuide);
+  const hasGithub = !!path?.length && path[0] !== 'api';
+
+  const pathname = serverContext().path.join('/');
+
+  const searchPlatforms = [currentPlatform?.name, currentGuide?.name].filter(isNotNil);
+
+  const unversionedPath = getUnversionedPath(path, false);
+
+  const leafNode = nodeForPath(rootNode, unversionedPath);
+  const heading = getSdkPageHeading(rootNode, path, frontMatter);
+
+  return (
+    <div className={`tw-app${hasToc ? ' has-toc' : ''}`}>
+      {isDeveloperDocs ? (
+        <DevelopDocsHeader pathname={pathname} searchPlatforms={searchPlatforms} />
+      ) : (
+        <Header pathname={pathname} searchPlatforms={searchPlatforms} />
+      )}
+      <section className="px-0 flex relative">
+        {sidebar ?? (
+          <Sidebar path={unversionedPath.split('/')} versions={frontMatter.versions} />
+        )}
+        <main className="main-content flex mt-[var(--header-height)] flex-1">
+          <div
+            className={[
+              'pt-6 px-6 prose dark:prose-invert max-w-full text-[var(--gray-12)] prose-a:no-underline hover:prose-a:underline',
+              'prose-code:font-normal prose-code:font-mono marker:text-[var(--darkPurple)] marker:font-medium prose-li:my-1',
+              'prose-headings:mt-0 prose-headings:font-medium prose-headings:relative prose-headings:text-[var(--gray-12)]',
+              'prose-blockquote:font-normal prose-blockquote:border-l-[3px] prose-em:font-normal prose-blockquote:text-[var(--gray-12)]',
+              'prose-img:my-2',
+              'prose-strong:text-[var(--gray-12)]',
+              // Allow flex item to shrink within layout; prevents long content from
+              // forcing the main column to grow and squeezing the ToC
+              fullWidth ? 'max-w-none w-full min-w-0' : 'w-full min-w-0',
+            ].join(' ')}
+            id="doc-content"
+          >
+            <div className="mb-4">
+              <Banner />
+            </div>
+            <div className="flex items-center">
+              <Breadcrumbs items={buildBreadcrumbs(leafNode)} />{' '}
+              <div className="ml-auto hidden sm:block">
+                <CopyMarkdownButton pathname={pathname} />
+              </div>
+            </div>
+            <div>
+              <hgroup>
+                <h1>
+                  {path[0] === 'platforms' && path.length >= 2 ? (
+                    <span data-md-heading="">{heading}</span>
+                  ) : (
+                    heading
+                  )}
+                  {frontMatter.new && <FeatureBadge type="new" />}
+                  {frontMatter.beta && <FeatureBadge type="beta" />}
+                  {frontMatter.early_access && <FeatureBadge type="early_access" />}
+                </h1>
+                <h2>{frontMatter.description}</h2>
+              </hgroup>
+              {/* This exact id is important for Algolia indexing */}
+              <div id="main">
+                {frontMatter.runtime && <RuntimeSelector />}
+                <CodeContextProvider sdkPackage={sdkPackage}>
+                  {children}
+                </CodeContextProvider>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 not-prose mt-16">
+                <div className="col-span-1">
+                  {previousPage && <PaginationNav node={previousPage} title="Previous" />}
+                </div>
+                <div className="col-span-1">
+                  {nextPage && <PaginationNav node={nextPage} title="Next" />}
+                </div>
+              </div>
+
+              <DocFeedback pathname={pathname} />
+
+              {hasGithub && <GitHubCTA />}
+            </div>
+          </div>
+        </main>
+        {hasToc && (
+          <aside
+            data-layout-anchor="right"
+            className="sticky h-[calc(100vh-var(--header-height))] top-[var(--header-height)] overflow-y-auto hidden toc:block flex-none w-[250px] min-w-[250px]"
+            style={{marginRight: 'var(--layout-offset, 0px)'}}
+          >
+            <div className="sidebar">
+              <SidebarTableOfContents />
+              <PlatformSdkDetail />
+            </div>
+          </aside>
+        )}
+      </section>
+      <style>{`
+        :root {
+          --doc-content-w: 1100px;
+          --toc-w: 250px;
+          --layout-total: calc(var(--sidebar-width, 300px) + var(--doc-content-w) + var(--toc-w));
+          /* Fluid centering offset: 0 when viewport <= total layout width,
+             grows equally on both sides when viewport > total layout width.
+             This shifts the entire sidebar+content+ToC assembly toward center. */
+          --layout-offset: max(0px, (100vw - var(--layout-total)) / 2);
+        }
+        #doc-content {
+          max-width: var(--doc-content-w);
+          box-sizing: border-box;
+        }
+        /* When the TOC is visible but the full layout doesn't fit yet, shrink content
+           to fill available space rather than overflowing. Only applies when the TOC
+           is actually rendered (has-toc class). */
+        @media (min-width: 1490px) and (max-width: 1649px) {
+          .has-toc #doc-content {
+            max-width: calc(100vw - var(--sidebar-width, 300px) - var(--toc-w) - 2rem);
+          }
+        }
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .main-content {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+          #doc-content {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+        }
+      `}</style>
+
+      <Mermaid />
+      <ReaderDepthTracker />
+    </div>
+  );
+}

@@ -1,0 +1,208 @@
+## Job Monitoring
+
+If you're using `sidekiq-cron` or `sidekiq-scheduler`, Sentry can automatically
+capture check-ins for all jobs that are scheduled to run periodically. To
+achieve this, you need to enable the corresponding Sentry plugin:
+
+```rb
+Sentry.init do |config|
+  config.enabled_patches += [:sidekiq_cron]
+  # or, for sidekiq-scheduler:
+  config.enabled_patches += [:sidekiq_scheduler]
+end
+```
+
+More generally, popular job frameworks such as [Active Job](/platforms/ruby/guides/rails/integrations/active-job/)
+and `Sidekiq` with a `perform` method can use the
+`Sentry::Cron::MonitorCheckIns` mixin module to automatically capture check-ins.
+Pass a `monitor_config` so Sentry creates or updates the monitor from your code.
+
+```rb {tabTitle: ActiveJob} {mdExpandTabs}
+class ExampleJob < ApplicationJob
+  include Sentry::Cron::MonitorCheckIns
+
+  sentry_monitor_check_ins monitor_config: Sentry::Cron::MonitorConfig.from_crontab('0 * * * *')
+
+  def perform(*args)
+    # do stuff
+  end
+end
+```
+
+```rb {tabTitle: Sidekiq}
+class SidekiqJob
+  include Sidekiq::Job
+  include Sentry::Cron::MonitorCheckIns
+
+  sentry_monitor_check_ins monitor_config: Sentry::Cron::MonitorConfig.from_crontab('0 * * * *')
+
+  def perform(*args)
+    # do stuff
+  end
+end
+```
+
+If no monitor with this slug exists in Sentry and no `monitor_config` is sent, Sentry drops the check-ins. You can pass in optional attributes to `sentry_monitor_check_ins` as follows.
+
+```rb
+# slug defaults to the job class name
+sentry_monitor_check_ins slug: 'custom_slug'
+
+# define the monitor config with an interval
+# the units supported are :year, :month, :week, :day, :hour, :minute
+sentry_monitor_check_ins monitor_config: Sentry::Cron::MonitorConfig.from_interval(1, :minute)
+
+# define the monitor config with a crontab
+sentry_monitor_check_ins monitor_config: Sentry::Cron::MonitorConfig.from_crontab('5 * * * *')
+```
+
+### rufus-scheduler
+
+If you're using `rufus-scheduler`, enable the `:rufus_scheduler` patch to capture check-ins for `cron` and `every` jobs:
+
+```rb
+Sentry.init do |config|
+  config.enabled_patches += [:rufus_scheduler]
+end
+```
+
+```rb
+scheduler = Rufus::Scheduler.new
+
+scheduler.cron '0 9 * * 1-5', name: 'daily-report' do
+  # do stuff
+end
+
+scheduler.every '10m', name: 'sync-accounts' do
+  # do stuff
+end
+
+# skip a job
+scheduler.every '1m', sentry_monitor: false do
+  # do stuff
+end
+```
+
+The monitor slug comes from the job's `name` option, or from the handler's class or method name when you pass one instead of a block. Blocks without a `name` aren't monitored, so set `name` on every block you want to monitor.
+
+Sentry creates the monitor from `cron` jobs and from `every` jobs whose frequency is a whole number of minutes, hours, or days. Jobs whose schedule can't be expressed in the Crons schedule format aren't monitored, such as a job that runs every 10 seconds or one whose time zone is an offset like `+05:30` rather than an IANA name like `Europe/Vienna`. `interval` jobs aren't monitored either, since they wait a fixed time after each run ends and have no fixed schedule. One-off `in` and `at` jobs are not monitored, and jobs scheduled by `sidekiq-scheduler` are left to the `:sidekiq_scheduler` patch.
+
+### Solid Queue
+
+If you're using Solid Queue recurring tasks, enable the `:solid_queue_recurring` patch to capture check-ins for every task in `config/recurring.yml`, as well as dynamic tasks:
+
+```rb
+Sentry.init do |config|
+  config.enabled_patches += [:solid_queue_recurring]
+end
+```
+
+```yaml {filename:config/recurring.yml}
+production:
+  nightly_report:
+    class: ReportJob
+    args: [nightly]
+    schedule: "0 2 * * * America/New_York"
+  weekly_report:
+    class: ReportJob
+    args: [weekly]
+    schedule: every monday at 9am
+  clear_cache:
+    command: "Rails.cache.clear"
+    schedule: every hour
+```
+
+The monitor slug is the task key, so this example creates three monitors: `nightly_report`, `weekly_report`, and `clear_cache`. Each task gets its own monitor, even when tasks share a job class. Both `class` and `command` tasks are monitored.
+
+Sentry creates and updates each monitor from the task's schedule and time zone. Tasks whose schedule can't be expressed in the Crons schedule format, such as a task that runs every 10 seconds, aren't monitored. Jobs that already call `sentry_monitor_check_ins` are left as they are.
+
+To skip tasks, list their keys in `config.rails.solid_queue_exclude_recurring_tasks`. Strings match a task key exactly, and regular expressions are matched against it:
+
+```rb
+Sentry.init do |config|
+  config.enabled_patches += [:solid_queue_recurring]
+  config.rails.solid_queue_exclude_recurring_tasks = ["clear_cache", /^tmp_/]
+end
+```
+
+## Manual Setup
+
+If you're using `Clockwork` or `Whenever`, you'll need to instrument your jobs
+manually.
+
+### Check-Ins (Recommended)
+
+Check-in monitoring allows you to track a job's progress by completing two check-ins: one at the start of your job and another at the end of your job. This two-step process allows Sentry to notify you if your job didn't start when expected (missed) or if it exceeded its maximum runtime (failed).
+
+```ruby
+check_in_id = Sentry.capture_check_in('<monitor-slug>', :in_progress)
+# Execute your scheduled task here...
+Sentry.capture_check_in('<monitor-slug>', :ok, check_in_id: check_in_id)
+```
+
+If your job execution fails, you can notify Sentry about the failure:
+
+```ruby
+Sentry.capture_check_in('<monitor-slug>', :error, check_in_id: check_in_id)
+```
+
+### Heartbeat
+
+Heartbeat monitoring notifies Sentry of a job's status through one check-in. This setup will only notify you if your job didn't start when expected (missed). If you need to track a job to see if it exceeded its maximum runtime (failed), use check-ins instead.
+
+```ruby
+Sentry.capture_check_in('<monitor-slug>', :ok)
+```
+
+If your job execution fails, you can notify Sentry about the failure:
+
+```ruby
+Sentry.capture_check_in('<monitor-slug>', :error)
+```
+
+## Upserting Cron Monitors
+
+You can create and update your Monitors programmatically with code
+rather than [creating and configuring them in Sentry.io](https://sentry.io/issues/alerts/new/crons/).
+
+First create a config object from either a crontab or an interval.
+
+```ruby
+# Create a config from a crontab schedule (every 10 minutes)
+monitor_config = Sentry::Cron::MonitorConfig.from_crontab(
+  '5 * * * *',
+  checkin_margin: 5, # Optional check-in margin in minutes
+  max_runtime: 15, # Optional max runtime in minutes
+  timezone: 'Europe/Vienna', # Optional timezone
+)
+
+# Create a config from an interval schedule (every 10 minutes)
+monitor_config = Sentry::Cron::MonitorConfig.from_interval(
+  10,
+  :minute,
+  checkin_margin: 5, # Optional check-in margin in minutes
+  max_runtime: 15, # Optional max runtime in minutes
+  timezone: 'Europe/Vienna', # Optional timezone
+)
+```
+
+Then, use that config object during your check-ins.
+
+```ruby
+# 🟡 Notify Sentry your job is running:
+check_in_id = Sentry.capture_check_in(
+  '<monitor-slug>',
+  :in_progress,
+  monitor_config: monitor_config
+)
+
+# Execute your scheduled task here...
+
+# 🟢 Notify Sentry your job has completed successfully:
+Sentry.capture_check_in(
+  '<monitor-slug>',
+  :ok,
+  check_in_id: check_in_id,
+  monitor_config: monitor_config
+)`
+```

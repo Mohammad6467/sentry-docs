@@ -1,0 +1,34 @@
+Initialize the SDK, then use `SentrySDK.logger` to send logs. In SDK 9.27.0 and later, manual logging doesn't require an enable flag.
+
+```swift {tabTitle:Swift}
+import Sentry
+
+SentrySDK.start { options in
+    options.dsn = "___PUBLIC_DSN___"
+}
+```
+
+```objc {tabTitle:Objective-C}
+@import Sentry;
+
+[SentrySDK startWithConfigureOptions:^(SentryOptions *options) {
+    options.dsn = @"___PUBLIC_DSN___";
+}];
+```
+
+```objc {tabTitle:Objective-C (SentryObjC)}
+#import <SentryObjC/SentryObjC.h>
+
+[SentryObjCSDK startWithConfigureOptions:^(SentryObjCOptions *options) {
+    options.dsn = @"___PUBLIC_DSN___";
+}];
+```
+
+For older SDK versions, add the appropriate option inside the initialization block:
+
+| SDK Version  | Swift                                    | Objective-C                              |
+| ------------ | ---------------------------------------- | ---------------------------------------- |
+| 9.0.0–9.26.x | `options.enableLogs = true`              | `options.enableLogs = YES;`              |
+| 8.55.0–8.x   | `options.experimental.enableLogs = true` | `options.experimental.enableLogs = YES;` |
+
+In SDK 9.27.0+, `enableLogs` is deprecated. Setting it to `false` doesn't drop logs sent through `SentrySDK.logger` or integrations that forward to it. Use <PlatformLink to="/logs/#beforesendlog">`beforeSendLog`</PlatformLink> to filter logs.

@@ -1,0 +1,47 @@
+---
+title: Monolog
+sidebar_order: 5
+sidebar_section: configuration
+description: "Learn how to use Monolog with Sentry's Symfony SDK."
+---
+
+Monolog logs can be captured as <PlatformLink to="/logs/">Sentry Logs</PlatformLink> for better searchability and querying.
+
+To send Monolog records as Sentry Logs, configure the Monolog handler for logs:
+
+```yaml {filename:config/packages/monolog.yaml}
+services:
+  Sentry\SentryBundle\Monolog\LogsHandler:
+    arguments:
+      - !php/const Monolog\Logger::WARNING
+
+monolog:
+  handlers:
+    sentry_logs:
+      type: service
+      id: Sentry\SentryBundle\Monolog\LogsHandler
+```
+
+You can control which log levels are sent to Sentry Logs by configuring the handler's minimum level in your services configuration.
+
+## Breadcrumbs
+
+When using [Monolog](https://github.com/Seldaek/monolog) you can configure a [breadcrumb](../../enriching-events/breadcrumbs/) handler to capture Monolog messages as breadcrumbs.
+The breadcrumb handler does not send anything to Sentry directly. It records breadcrumbs that are attached to a later event or exception.
+
+```yaml {filename:config/services.yaml}
+services:
+  Sentry\Monolog\BreadcrumbHandler:
+    arguments:
+      $hub: '@Sentry\State\HubInterface'
+      $level: !php/const Monolog\Logger::INFO
+```
+
+```yaml {filename:config/packages/monolog.yaml}
+monolog:
+  handlers:
+    sentry_breadcrumbs:
+      type: service
+      name: sentry_breadcrumbs
+      id: Sentry\Monolog\BreadcrumbHandler
+```

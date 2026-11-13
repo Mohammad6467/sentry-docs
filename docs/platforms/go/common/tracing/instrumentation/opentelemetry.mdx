@@ -1,0 +1,34 @@
+---
+title: OpenTelemetry Support
+description: "Using OpenTelemetry with the Sentry Go SDK."
+sidebar_order: 20
+---
+
+You can configure your [OpenTelemetry SDK](https://opentelemetry.io/) to send traces to Sentry over OTLP.
+
+<Alert level="warning" title="Span Processor Removed">
+
+The legacy `sentryotel.NewSentrySpanProcessor()` and `sentryotel.NewSentryPropagator()` were removed in `sentry-go` v0.47.0. Use `sentryotlp.NewTraceExporter()` to send traces directly to Sentry via OTLP, or use a standard OpenTelemetry exporter if you're sending data through an OpenTelemetry Collector.
+
+</Alert>
+
+## Install
+
+<PlatformContent includePath="performance/opentelemetry-install" />
+
+## Usage
+
+<PlatformContent includePath="performance/opentelemetry-setup" />
+
+## OpenTelemetry and Sentry
+
+With the OTLP-based setup, your OpenTelemetry spans are exported to Sentry using the standard OpenTelemetry trace pipeline instead of being converted locally by a Sentry span processor. Root spans show up in Sentry as transactions, child spans appear under those transactions, and the full trace remains connected across services.
+
+If you also want captured Sentry errors to be linked to the active OpenTelemetry trace, register `sentryotel.NewOtelIntegration()` in `sentry.Init` and capture errors with an `EventHint` that includes the active `context.Context`.
+
+
+If you're using an OpenTelemetry Collector, you don't need `sentryotlp.NewTraceExporter()`. Keep `sentryotel.NewOtelIntegration()` in your Sentry SDK setup, then configure the collector's `otlphttp` exporter to send traces to Sentry's OTLP endpoints. For the collector configuration, see the [OpenTelemetry Collector](/concepts/otlp/forwarding/pipelines/collector/) guide.
+
+## Additional Configuration
+
+If you need more fine grained control over Sentry, take a look at the <PlatformLink to="/configuration/">Configuration page</PlatformLink>. In case you'd like to filter out transactions before sending them to Sentry (to get rid of health checks, for example), you may find the <PlatformLink to="/configuration/filtering/#filtering-transaction-events">Filtering page</PlatformLink> helpful.

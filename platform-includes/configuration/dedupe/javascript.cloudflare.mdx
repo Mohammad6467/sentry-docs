@@ -1,0 +1,8 @@
+```typescript {filename:src/instrument.server.ts}
+import * as Sentry from "@sentry/cloudflare";
+
+export default Sentry.defineCloudflareOptions((env) => ({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [Sentry.dedupeIntegration()],
+}));
+```

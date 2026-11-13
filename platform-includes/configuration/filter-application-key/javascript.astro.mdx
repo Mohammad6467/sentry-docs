@@ -1,0 +1,11 @@
+```js {tabTitle:Vite} {filename:astro.config.mjs} {6}
+export default defineConfig({
+  integrations: [
+    sentry({
+      unstable_sentryVitePluginOptions: {
+        applicationKey: "your-custom-application-key",
+      },
+    }),
+  ],
+});
+```

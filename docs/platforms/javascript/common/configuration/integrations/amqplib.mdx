@@ -1,0 +1,24 @@
+---
+title: Amqplib
+description: "Adds instrumentation for Amqplib. (default)"
+supportedCategories:
+  - server
+supported:
+  - javascript.electron
+---
+
+_Import name: `Sentry.amqplibIntegration`_
+
+This integration is enabled by default when performance monitoring is enabled. If you'd like to modify your default integrations, read [this](./../#modifying-default-integrations).
+
+The `amqplibIntegration` adds instrumentation for the `amqplib` library to capture spans using [`@opentelemetry/instrumentation-amqplib`](https://www.npmjs.com/package/@opentelemetry/instrumentation-amqplib).
+
+```JavaScript
+Sentry.init({
+  integrations: [Sentry.amqplibIntegration()],
+});
+```
+
+## Supported Versions
+
+- `amqplib`: `>=0.5.5 <1`

@@ -1,0 +1,27 @@
+```javascript {tabTitle:CommonJS}
+// Require this first!
+require("./instrument");
+
+// Now require other modules
+const express = require("express");
+
+const app = express();
+
+// Add your routes, etc.
+
+app.listen(3000);
+```
+
+```javascript {tabTitle:ESM}
+// Import this first!
+import "./instrument.mjs";
+
+// Now import other modules
+import express from "express";
+
+const app = express();
+
+// Add your routes, etc.
+
+app.listen(3000);
+```

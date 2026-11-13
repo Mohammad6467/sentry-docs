@@ -1,0 +1,3851 @@
+const isDeveloperDocs = !!process.env.NEXT_PUBLIC_DEVELOPER_DOCS;
+
+/** @type {import('next/dist/lib/load-custom-routes').Redirect[]} */
+const developerDocsRedirects = [
+  {
+    source: '/sdk/getting-started/templates/contributing-md-template/',
+    destination: '/sdk/getting-started/templates/contributing-md/',
+  },
+  // Spotlight and MCP moved from expected-features to foundations/client/integrations
+  {
+    source: '/sdk/expected-features/spotlight/',
+    destination: '/sdk/foundations/client/integrations/spotlight/',
+  },
+  {
+    source: '/sdk/expected-features/mcp-instrumentation/:path*',
+    destination: '/sdk/foundations/client/integrations/mcp/:path*',
+  },
+  {
+    source: '/sdk/features/spotlight/',
+    destination: '/sdk/foundations/client/integrations/spotlight/',
+  },
+  {
+    source: '/sdk/features/mcp-instrumentation/:path*',
+    destination: '/sdk/foundations/client/integrations/mcp/:path*',
+  },
+  {
+    source: '/sdk/getting-started/templates/agents-md-template/',
+    destination: '/sdk/getting-started/templates/agents-md/',
+  },
+  // Playbook reorganization: flat → grouped subfolders
+  {
+    source: '/sdk/getting-started/playbooks/adding-a-dependency/',
+    destination: '/sdk/getting-started/playbooks/development/adding-a-dependency/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/handling-a-regression/',
+    destination: '/sdk/getting-started/playbooks/development/handling-a-regression/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/handling-external-contributor-pr/',
+    destination:
+      '/sdk/getting-started/playbooks/development/handling-external-contributor-pr/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/opening-a-pr/',
+    destination: '/sdk/getting-started/playbooks/development/opening-a-pr/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/reviewing-a-pr/',
+    destination: '/sdk/getting-started/playbooks/development/reviewing-a-pr/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/reviewing-ai-generated-code/',
+    destination:
+      '/sdk/getting-started/playbooks/development/reviewing-ai-generated-code/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/syncing-feature-branches/',
+    destination: '/sdk/getting-started/playbooks/development/syncing-feature-branches/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/aligning-cross-sdk-changes/',
+    destination:
+      '/sdk/getting-started/playbooks/coordination/aligning-cross-sdk-changes/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/quarterly-cross-sdk-retro/',
+    destination: '/sdk/getting-started/playbooks/coordination/quarterly-cross-sdk-retro/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/breaking-changes/',
+    destination: '/sdk/getting-started/playbooks/sdk-lifecycle/breaking-changes/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/cutting-a-release/',
+    destination: '/sdk/getting-started/playbooks/sdk-lifecycle/cutting-a-release/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/deprecating-an-api/',
+    destination: '/sdk/getting-started/playbooks/sdk-lifecycle/deprecating-an-api/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/dropping-platform-support/',
+    destination:
+      '/sdk/getting-started/playbooks/sdk-lifecycle/dropping-platform-support/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/setting-up-new-sdk-repo/',
+    destination: '/sdk/getting-started/playbooks/setup/setting-up-new-sdk-repo/',
+  },
+  {
+    source: '/sdk/getting-started/playbooks/setting-up-release-infrastructure/',
+    destination:
+      '/sdk/getting-started/playbooks/setup/setting-up-release-infrastructure/',
+  },
+  {
+    source: '/sdk/miscellaneous/unified-api/tracing/:path*',
+    destination: '/sdk/telemetry/traces/:path*',
+  },
+  {
+    source: '/onpremise/:path*',
+    destination: '/self-hosted/:path*',
+  },
+  {
+    source: '/self-hosted/mail/:path*',
+    destination: '/self-hosted/email/:path*',
+  },
+  {
+    source: '/processing-tickets',
+    destination: 'https://open.sentry.io/triage/',
+  },
+  {
+    source: '/api/:path*',
+    destination: '/backend/api/:path*',
+  },
+  // Context propagation consolidation (must be before the /sdk/performance/ wildcard)
+  {
+    source: '/sdk/performance/dynamic-sampling-context/',
+    destination: '/sdk/foundations/trace-propagation/dynamic-sampling-context/',
+  },
+  {
+    source: '/sdk/performance/dynamic-sampling-context/:path*',
+    destination: '/sdk/foundations/trace-propagation/dynamic-sampling-context/:path*',
+  },
+  {
+    source: '/sdk/performance/distributed-tracing/',
+    destination: '/sdk/foundations/trace-propagation/',
+  },
+  {
+    source: '/sdk/performance/distributed-tracing/:path*',
+    destination: '/sdk/foundations/trace-propagation/:path*',
+  },
+  {
+    source: '/sdk/performance/:path*',
+    destination: '/sdk/telemetry/traces/:path*',
+  },
+  {
+    source: '/sdk/telemetry/scopes/',
+    destination: '/sdk/foundations/state-management/scopes/',
+  },
+  {
+    source: '/sdk/data-model/event-payloads/types/',
+    destination: '/sdk/foundations/envelopes/event-payloads/',
+  },
+  {
+    source: '/sdk/data-model/event-payloads/',
+    destination: '/sdk/foundations/envelopes/event-payloads/',
+  },
+  {
+    source: '/sdk/data-model/event-payloads/:path*',
+    destination: '/sdk/foundations/envelopes/event-payloads/:path*',
+  },
+  {
+    source: '/sdk/data-model/envelopes/',
+    destination: '/sdk/foundations/envelopes/',
+  },
+  {
+    source: '/sdk/data-model/envelope-items/',
+    destination: '/sdk/foundations/envelopes/envelope-items/',
+  },
+  {
+    source: '/sdk/basics/:path*',
+    destination: '/sdk/foundations/',
+  },
+  {
+    source: '/sdk/processes/basics/:path*',
+    destination: '/sdk/foundations/',
+  },
+  {
+    source: '/sdk/data-handling/:path*',
+    destination: '/sdk/foundations/data-scrubbing/:path*',
+  },
+  {
+    source: '/sdk/expected-features/data-handling/:path*',
+    destination: '/sdk/foundations/data-scrubbing/:path*',
+  },
+  {
+    source: '/sdk/features/data-handling/:path*',
+    destination: '/sdk/foundations/data-scrubbing/:path*',
+  },
+  {
+    source: '/sdk/rate-limiting/:path*',
+    destination: '/sdk/foundations/transport/rate-limiting/:path*',
+  },
+  {
+    source: '/sdk/expected-features/rate-limiting/:path*',
+    destination: '/sdk/foundations/transport/rate-limiting/:path*',
+  },
+  {
+    source: '/sdk/features/rate-limiting/:path*',
+    destination: '/sdk/foundations/transport/rate-limiting/:path*',
+  },
+  {
+    source: '/sdk/features/environment-variables/',
+    destination: '/sdk/foundations/client/configuration/',
+  },
+  {
+    source: '/sdk/features/setup-wizards/:path*',
+    destination: '/sdk-setup-wizards/:path*',
+  },
+  {
+    source: '/sdk/expected-features/',
+    destination: '/sdk/',
+  },
+  {
+    source: '/sdk/features/',
+    destination: '/sdk/',
+  },
+  {
+    source: '/sdk/envelopes/:path*',
+    destination: '/sdk/foundations/envelopes/:path*',
+  },
+  {
+    source: '/sdk/foundations/data-model/envelopes/',
+    destination: '/sdk/foundations/envelopes/',
+  },
+  {
+    source: '/sdk/foundations/data-model/envelope-items/',
+    destination: '/sdk/foundations/envelopes/envelope-items/',
+  },
+  {
+    source: '/sdk/foundations/data-model/event-payloads/',
+    destination: '/sdk/foundations/envelopes/event-payloads/',
+  },
+  {
+    source: '/sdk/foundations/data-model/event-payloads/:path*',
+    destination: '/sdk/foundations/envelopes/event-payloads/:path*',
+  },
+  {
+    source: '/sdk/event-payloads/:path*',
+    destination: '/sdk/foundations/envelopes/event-payloads/:path*',
+  },
+  {
+    source: '/sdk/hub_and_scope_refactoring/:path*',
+    destination: '/sdk/foundations/state-management/scopes/',
+  },
+  {
+    source: '/sdk/miscellaneous/hub_and_scope_refactoring/',
+    destination: '/sdk/foundations/state-management/scopes/',
+  },
+  {
+    source: '/sdk/miscellaneous/',
+    destination: '/sdk/foundations/state-management/',
+  },
+  {
+    source: '/sdk/unified-api/:path*',
+    destination: '/sdk/foundations/',
+  },
+  {
+    source: '/sdk/miscellaneous/unified-api/:path*',
+    destination: '/sdk/foundations/',
+  },
+  {
+    source: '/sdk/foundations/overview/',
+    destination: '/sdk/foundations/',
+  },
+  {
+    source: '/sdk/foundations/data-model/scopes/',
+    destination: '/sdk/foundations/state-management/scopes/',
+  },
+  {
+    source: '/sdk/foundations/data-model/attributes/',
+    destination: '/sdk/foundations/state-management/scopes/attributes/',
+  },
+  {
+    source: '/sdk/sessions/:path*',
+    destination: '/sdk/telemetry/sessions/:path*',
+  },
+  {
+    source: '/sdk/client-reports/:path*',
+    destination: '/sdk/telemetry/client-reports/:path*',
+  },
+  {
+    source: '/sdk/replays/:path*',
+    destination: '/sdk/telemetry/replays/:path*',
+  },
+  {
+    source: '/sdk/telemetry/profiles/sample-format-v1/',
+    destination: '/sdk/telemetry/profiles/',
+  },
+  {
+    source: '/sdk/telemetry/profiles/sample-format-v2/',
+    destination: '/sdk/telemetry/profiles/',
+  },
+  {
+    source: '/sdk/telemetry/profiles/continuous-profiling-api/',
+    destination: '/sdk/telemetry/profiles/',
+  },
+  {
+    source: '/sdk/telemetry/attributes/',
+    destination: '/sdk/foundations/state-management/scopes/attributes/',
+  },
+  {
+    source: '/sdk/telemetry/spans/batch-processor/',
+    destination: '/sdk/foundations/processing/batch-processor/',
+  },
+  {
+    source: '/sdk/telemetry/spans/filtering/',
+    destination: '/sdk/telemetry/spans/#spec-filtering',
+  },
+  {
+    source: '/sdk/telemetry/spans/implementation/',
+    destination: '/sdk/telemetry/spans/#implementation-guidelines',
+  },
+  {
+    source: '/sdk/telemetry/spans/sampling/',
+    destination: '/sdk/telemetry/spans/#spec-sampling',
+  },
+  {
+    source: '/sdk/telemetry/spans/scrubbing-data/',
+    destination: '/sdk/telemetry/spans/#spec-data-scrubbing',
+  },
+  {
+    source: '/sdk/telemetry/spans/span-api/',
+    destination: '/sdk/telemetry/spans/#public-api',
+  },
+  {
+    source: '/sdk/telemetry/spans/span-buffer/',
+    destination: '/sdk/telemetry/spans/#spec-span-buffer',
+  },
+  {
+    source: '/sdk/telemetry/spans/span-protocol/',
+    destination: '/sdk/telemetry/spans/#wire-format',
+  },
+  {
+    source: '/sdk/telemetry/spans/span-trace-propagation/',
+    destination: '/sdk/telemetry/spans/#spec-trace-propagation',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/',
+    destination: '/sdk/foundations/processing/telemetry-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/backend-telemetry-buffer/',
+    destination:
+      '/sdk/foundations/processing/telemetry-processor/backend-telemetry-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/browser-telemetry-buffer/',
+    destination: '/sdk/foundations/processing/telemetry-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/gdx-telemetry-buffer/',
+    destination: '/sdk/foundations/processing/telemetry-processor/',
+  },
+  {
+    source:
+      '/sdk/foundations/processing/telemetry-processor/browser-telemetry-processor/',
+    destination: '/sdk/foundations/processing/telemetry-processor/',
+  },
+  {
+    source: '/sdk/foundations/processing/telemetry-processor/gdx-telemetry-processor/',
+    destination: '/sdk/foundations/processing/telemetry-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/mobile-telemetry-buffer/',
+    destination:
+      '/sdk/foundations/processing/telemetry-processor/mobile-telemetry-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-buffer/batch-processor/',
+    destination: '/sdk/foundations/processing/batch-processor/',
+  },
+  {
+    source: '/sdk/foundations/processing/telemetry-processor/batch-processor/',
+    destination: '/sdk/foundations/processing/batch-processor/',
+  },
+  {
+    source: '/sdk/telemetry/telemetry-processor/:path*',
+    destination: '/sdk/foundations/processing/telemetry-processor/:path*',
+  },
+  {
+    source: '/sdk/setup-wizards/:path*',
+    destination: '/sdk-setup-wizards/:path*',
+  },
+  {
+    source: '/sdk/serverless/:path*',
+    destination: '/sdk/platform-specifics/serverless-sdks/:path*',
+  },
+  {
+    source: '/sdk/serverless-sdks/:path*',
+    destination: '/sdk/platform-specifics/serverless-sdks/:path*',
+  },
+  {
+    source: '/sdk/native-sdks/:path*',
+    destination: '/sdk/platform-specifics/native-sdks/:path*',
+  },
+  {
+    source: '/sdk/javascript-sdks/:path*',
+    destination: '/sdk/platform-specifics/javascript-sdks/:path*',
+  },
+  {
+    source: '/sdk/signal-handlers/:path*',
+    destination: '/sdk/platform-specifics/native-sdks/signal-handlers/:path*',
+  },
+  {
+    source: '/sdk/store/:path*',
+    destination: '/sdk/foundations/transport/',
+  },
+  {
+    source: '/sdk/miscellaneous/store/:path*',
+    destination: '/sdk/foundations/transport/',
+  },
+  {
+    source: '/sdk/development-process/:path*',
+    destination: '/sdk/getting-started/',
+  },
+  {
+    source: '/sdk/processes/releases/',
+    destination:
+      '/sdk/getting-started/playbooks/setup/setting-up-release-infrastructure/',
+  },
+  {
+    source: '/sdk/processes/triaging/',
+    destination: '/sdk/getting-started/playbooks/coordination/triaging/',
+  },
+  {
+    source: '/sdk/processes/',
+    destination: '/sdk/getting-started/',
+  },
+  {
+    source: '/sdk/processes/breaking_changes/',
+    destination: '/sdk/getting-started/playbooks/sdk-lifecycle/breaking-changes/',
+  },
+  {
+    source: '/sdk/processes/breaking-changes/',
+    destination: '/sdk/getting-started/playbooks/sdk-lifecycle/breaking-changes/',
+  },
+  {
+    source: '/sdk/miscellaneous/feature-branches/',
+    destination: '/sdk/getting-started/playbooks/development/syncing-feature-branches/',
+  },
+  {
+    source: '/application/ab-testing/',
+    destination: '/backend/application-domains/ab-testing/',
+  },
+  {
+    source: '/application/api/:path*',
+    destination: '/backend/api/:path*',
+  },
+  {
+    source: '/api-server/:path*',
+    destination: '/backend/:path*',
+  },
+  {
+    source: '/application/serializers/',
+    destination: '/backend/serializers/',
+  },
+  {
+    source: '/application/feature-flags/:path*',
+    destination: '/backend/feature-flags/:path*',
+  },
+  {
+    source: '/application/grouping/',
+    destination: '/backend/application-domains/grouping/',
+  },
+  {
+    source: '/application/issue-platform/',
+    destination: '/backend/issue-platform/',
+  },
+  {
+    source: '/application/transaction-clustering/',
+    destination: '/backend/application-domains/transaction-clustering/',
+  },
+  {
+    source: '/application/translations/',
+    destination: '/backend/application-domains/translations/',
+  },
+  {
+    source: '/application/pii/:path*',
+    destination: '/backend/pii/:path*',
+  },
+  {
+    source: '/backend/control-silo/',
+    destination: '/application-architecture/multi-region-deployment/control-silo/',
+  },
+  {
+    source: '/backend/cross-region-replication/',
+    destination:
+      '/application-architecture/multi-region-deployment/cross-region-replication/',
+  },
+  {
+    source: '/backend/cross-region-rpc/',
+    destination: '/application-architecture/multi-region-deployment/cross-region-rpc/',
+  },
+  {
+    source: '/development/python-dependencies/',
+    destination: '/development-infrastructure/python-dependencies/',
+  },
+  {
+    source: '/development/docs/',
+    destination: '/engineering-practices/documentation/',
+  },
+  {
+    source: '/development/philosophy/',
+    destination: '/getting-started/philosophy/',
+  },
+  {
+    source: '/development/database-migrations/',
+    destination: '/backend/application-domains/database-migrations/',
+  },
+  {
+    source: '/services/metrics/',
+    destination: '/backend/application-domains/metrics/',
+  },
+  {
+    source: '/services/nodestore/',
+    destination: '/backend/application-domains/nodestore/',
+  },
+  {
+    source: '/services/devservices/',
+    destination: '/development-infrastructure/devservices/',
+  },
+  {
+    source: '/services/queue/',
+    destination: '/backend/application-domains/tasks/',
+  },
+  {
+    source: '/services/quotas/',
+    destination: '/backend/application-domains/quotas/',
+  },
+  {
+    source: '/services/tsdb/',
+    destination: '/backend/application-domains/tsdb/',
+  },
+  {
+    source: '/services/ports/',
+    destination: '/development-infrastructure/environment/ports/',
+  },
+  {
+    source: '/services/buffers/',
+    destination: '/backend/application-domains/write-buffers/',
+  },
+  {
+    source: '/services/digests/',
+    destination: '/backend/application-domains/digests/',
+  },
+  {
+    source: '/services/emails/',
+    destination: '/backend/emails/',
+  },
+  {
+    source: '/backend/application-domains/asynchronous-workers/',
+    destination: '/backend/application-domains/tasks/',
+  },
+  {
+    source: '/self-hosted/custom-ca-roots/',
+    destination: '/self-hosted/configuration/custom-ca-roots/',
+  },
+  {
+    source: '/self-hosted/email/',
+    destination: '/self-hosted/configuration/email/',
+  },
+  {
+    source: '/self-hosted/geolocation/',
+    destination: '/self-hosted/configuration/geolocation/',
+  },
+  {
+    source: '/self-hosted/sso/',
+    destination: '/self-hosted/configuration/sso/',
+  },
+  {
+    source: '/sdk/foundations/integrations/:path*',
+    destination: '/sdk/foundations/client/integrations/:path*',
+  },
+  {
+    source: '/sdk/foundations/integrations/',
+    destination: '/sdk/foundations/client/integrations/',
+  },
+  {
+    source: '/sdk/expected-features/environment-variables/',
+    destination: '/sdk/foundations/client/configuration/',
+  },
+  // Context propagation consolidation
+  {
+    source: '/sdk/telemetry/traces/distributed-tracing/',
+    destination: '/sdk/foundations/trace-propagation/',
+  },
+  {
+    source: '/sdk/telemetry/traces/distributed-tracing/:path*',
+    destination: '/sdk/foundations/trace-propagation/:path*',
+  },
+  {
+    source: '/sdk/telemetry/traces/dynamic-sampling-context/',
+    destination: '/sdk/foundations/trace-propagation/dynamic-sampling-context/',
+  },
+  {
+    source: '/sdk/telemetry/traces/dynamic-sampling-context/:path*',
+    destination: '/sdk/foundations/trace-propagation/dynamic-sampling-context/:path*',
+  },
+  {
+    source: '/sdk/telemetry/traces/tracing-without-performance/',
+    destination: '/sdk/foundations/trace-propagation/#default-propagation',
+  },
+  {
+    source: '/sdk/telemetry/traces/trace-propagation-cheat-sheet/',
+    destination: '/sdk/foundations/trace-propagation/#propagation-decision-matrix',
+  },
+  {
+    source: '/sdk/expected-features/setup-wizards/:path*',
+    destination: '/sdk-setup-wizards/:path*',
+  },
+  {
+    source: '/sdk/foundations/transport/envelopes/',
+    destination: '/sdk/foundations/envelopes/',
+  },
+  {
+    source: '/sdk/foundations/transport/envelope-items/',
+    destination: '/sdk/foundations/envelopes/envelope-items/',
+  },
+  {
+    source: '/sdk/foundations/transport/event-payloads/',
+    destination: '/sdk/foundations/envelopes/event-payloads/',
+  },
+  {
+    source: '/sdk/foundations/transport/event-payloads/:path*',
+    destination: '/sdk/foundations/envelopes/event-payloads/:path*',
+  },
+];
+
+/** @type {import('next/dist/lib/load-custom-routes').Redirect[]} */
+const userDocsRedirects = [
+  {
+    source: '/platforms/javascript/guides/:guide/opentelemetry/integration/',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/opentelemetry/',
+  },
+
+  // Guides → Get Started restructure
+  {
+    source: '/guides/',
+    destination: '/get-started/guides/',
+  },
+  {
+    source: '/guides/:path*',
+    destination: '/get-started/guides/:path*',
+  },
+
+  {
+    source: '/api/guides/oauth/',
+    destination: '/api/auth/',
+  },
+  {
+    source: '/api/guides/',
+    destination: '/api/',
+  },
+  {
+    source: '/product/codecov/:path*',
+    destination: '/integrations/',
+  },
+  {
+    source: '/product/codecov/',
+    destination: '/integrations/',
+  },
+  {
+    source: '/integrations/code-coverage/:path*',
+    destination: '/integrations/',
+  },
+  {
+    source: '/integrations/incidentio/',
+    destination: '/integrations/issue-tracking/incidentio/',
+  },
+  {
+    source: '/integrations/aws-lambda/',
+    destination: '/integrations/cloud-monitoring/aws-lambda/',
+  },
+  {
+    source: '/integrations/gcp-cloud-run/',
+    destination: '/integrations/cloud-monitoring/gcp-cloud-run/',
+  },
+  {
+    source: '/integrations/claude/',
+    destination: '/integrations/coding-agents/claude/',
+  },
+  {
+    source: '/integrations/cloudeagle/',
+    destination: '/integrations/compliance/cloudeagle/',
+  },
+  {
+    source: '/integrations/elba/',
+    destination: '/integrations/compliance/elba/',
+  },
+  {
+    source: '/integrations/truto/',
+    destination: '/integrations/compliance/truto/',
+  },
+  {
+    source: '/integrations/vanta/',
+    destination: '/integrations/compliance/vanta/',
+  },
+  {
+    source: '/integrations/vanta-eu/',
+    destination: '/integrations/compliance/vanta-eu/',
+  },
+  {
+    source: '/integrations/amazon-sqs/',
+    destination: '/integrations/data-forwarding/amazon-sqs/',
+  },
+  {
+    source: '/integrations/grafana/',
+    destination: '/integrations/data-forwarding/grafana/',
+  },
+  {
+    source: '/integrations/segment/',
+    destination: '/integrations/data-forwarding/segment/',
+  },
+  {
+    source: '/integrations/splunk/',
+    destination: '/integrations/data-forwarding/splunk/',
+  },
+  {
+    source: '/integrations/apigene/',
+    destination: '/integrations/debugging/apigene/',
+  },
+  {
+    source: '/integrations/codecomet/',
+    destination: '/integrations/debugging/codecomet/',
+  },
+  {
+    source: '/integrations/foamai/',
+    destination: '/integrations/debugging/foamai/',
+  },
+  {
+    source: '/integrations/logicstar/',
+    destination: '/integrations/debugging/logicstar/',
+  },
+  {
+    source: '/integrations/phoebeai/',
+    destination: '/integrations/debugging/',
+  },
+  {
+    source: '/integrations/qckfx/',
+    destination: '/integrations/debugging/',
+  },
+  {
+    source: '/integrations/revisedev/',
+    destination: '/integrations/debugging/',
+  },
+  {
+    source: '/integrations/rookout/',
+    destination: '/integrations/debugging/rookout/',
+  },
+  {
+    source: '/integrations/sevvy/',
+    destination: '/integrations/debugging/corelayer/',
+  },
+  {
+    source: '/integrations/sourcery/',
+    destination: '/integrations/debugging/sourcery/',
+  },
+  {
+    source: '/integrations/tembo/',
+    destination: '/integrations/debugging/tembo/',
+  },
+  {
+    source: '/integrations/expo/',
+    destination: '/integrations/deployment/expo/',
+  },
+  {
+    source: '/integrations/vercel/',
+    destination: '/integrations/deployment/vercel/',
+  },
+  {
+    source: '/integrations/flagsmith/',
+    destination: '/integrations/feature-flag/flagsmith/',
+  },
+  {
+    source: '/integrations/generic/',
+    destination: '/integrations/feature-flag/generic/',
+  },
+  {
+    source: '/integrations/keyflow/',
+    destination: '/integrations/feature-flag/keyflow/',
+  },
+  {
+    source: '/integrations/launchdarkly/',
+    destination: '/integrations/feature-flag/launchdarkly/',
+  },
+  {
+    source: '/integrations/split/',
+    destination: '/integrations/feature-flag/split/',
+  },
+  {
+    source: '/integrations/statsig/',
+    destination: '/integrations/feature-flag/statsig/',
+  },
+  {
+    source: '/integrations/unleash/',
+    destination: '/integrations/feature-flag/unleash/',
+  },
+  {
+    source: '/integrations/ui-components/',
+    destination: '/integrations/integration-platform/ui-components/',
+  },
+  {
+    source: '/integrations/bugsniff/',
+    destination: '/integrations/issue-tracking/bugsniff/',
+  },
+  {
+    source: '/integrations/clickup/',
+    destination: '/integrations/issue-tracking/clickup/',
+  },
+  {
+    source: '/integrations/factory/',
+    destination: '/integrations/issue-tracking/factory/',
+  },
+  {
+    source: '/integrations/goast/',
+    destination: '/integrations/issue-tracking/goast/',
+  },
+  {
+    source: '/integrations/height/',
+    destination: '/integrations/issue-tracking/height/',
+  },
+  {
+    source: '/integrations/jira/',
+    destination: '/integrations/issue-tracking/jira/',
+  },
+  {
+    source: '/integrations/kitemaker/',
+    destination: '/integrations/issue-tracking/kitemaker/',
+  },
+  {
+    source: '/integrations/linear/',
+    destination: '/integrations/issue-tracking/linear/',
+  },
+  {
+    source: '/integrations/makeplane/',
+    destination: '/integrations/issue-tracking/makeplane/',
+  },
+  {
+    source: '/integrations/linear-sentry-agent/',
+    destination: '/integrations/issue-tracking/sentry-linear-agent/',
+  },
+  {
+    source: '/integrations/sentry-linear-agent/',
+    destination: '/integrations/issue-tracking/sentry-linear-agent/',
+  },
+  {
+    source: '/integrations/shortcut/',
+    destination: '/integrations/issue-tracking/shortcut/',
+  },
+  {
+    source: '/integrations/starsling/',
+    destination: '/integrations/issue-tracking/starsling/',
+  },
+  {
+    source: '/integrations/teamcamp/',
+    destination: '/integrations/issue-tracking/teamcamp/',
+  },
+  {
+    source: '/integrations/teamwork/',
+    destination: '/integrations/issue-tracking/teamwork/',
+  },
+  {
+    source: '/integrations/cased/',
+    destination: '/integrations/notification-incidents/cased/',
+  },
+  {
+    source: '/integrations/discord/',
+    destination: '/integrations/notification-incidents/discord/',
+  },
+  {
+    source: '/integrations/glueai/',
+    destination: '/integrations/notification-incidents/glueai/',
+  },
+  {
+    source: '/integrations/msteams/',
+    destination: '/integrations/notification-incidents/msteams/',
+  },
+  {
+    source: '/integrations/opsgenie/',
+    destination: '/integrations/notification-incidents/opsgenie/',
+  },
+  {
+    source: '/integrations/pagerduty/',
+    destination: '/integrations/notification-incidents/pagerduty/',
+  },
+  {
+    source: '/integrations/pagertree/',
+    destination: '/integrations/notification-incidents/pagertree/',
+  },
+  {
+    source: '/integrations/rootly/',
+    destination: '/integrations/notification-incidents/rootly/',
+  },
+  {
+    source: '/integrations/signl4/',
+    destination: '/integrations/notification-incidents/signl4/',
+  },
+  {
+    source: '/integrations/slack/',
+    destination: '/integrations/notification-incidents/slack/',
+  },
+  {
+    source: '/integrations/spikesh/',
+    destination: '/integrations/notification-incidents/spikesh/',
+  },
+  {
+    source: '/integrations/telegram-alerts-bot/',
+    destination: '/integrations/notification-incidents/telegram-alerts-bot/',
+  },
+  {
+    source: '/integrations/atlas/',
+    destination: '/integrations/session-replay/atlas/',
+  },
+  {
+    source: '/integrations/azure-devops/',
+    destination: '/integrations/source-code-mgmt/azure-devops/',
+  },
+  {
+    source: '/integrations/bitbucket/',
+    destination: '/integrations/source-code-mgmt/bitbucket/',
+  },
+  {
+    source: '/integrations/continuedev/',
+    destination: '/integrations/source-code-mgmt/continuedev/',
+  },
+  {
+    source: '/integrations/github/',
+    destination: '/integrations/source-code-mgmt/github/',
+  },
+  {
+    source: '/integrations/source-code-mgmt/github-enterprise/',
+    destination: '/integrations/source-code-mgmt/github/',
+  },
+  {
+    source: '/integrations/gitlab/',
+    destination: '/integrations/source-code-mgmt/gitlab/',
+  },
+  {
+    source: '/integrations/perforce/',
+    destination: '/integrations/source-code-mgmt/perforce/',
+  },
+  {
+    source: '/integrations/source-context/',
+    destination: '/integrations/source-code-mgmt/source-context/',
+  },
+  {
+    source: '/integrations/cursor/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/daveio/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/daveio/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/fixa/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/fixa/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/cursor/',
+    destination: '/integrations/coding-agents/cursor/',
+  },
+  {
+    source: '/concepts/data-management/advanced-datascrubbing/',
+    destination: '/security-legal-pii/scrubbing/advanced-datascrubbing/',
+  },
+  {
+    source: '/organization/integrations/height/',
+    destination: '/integrations/issue-tracking/height/',
+  },
+  {
+    source: '/organization/integrations/rootly/',
+    destination: '/integrations/notification-incidents/rootly/',
+  },
+  {
+    source: '/account/cli/configuration/',
+    destination: '/cli/configuration/',
+  },
+  {
+    source: '/organization/integrations/telegram-alerts-bot/',
+    destination: '/integrations/notification-incidents/telegram-alerts-bot/',
+  },
+  {
+    source: '/platforms/python-fastapi/logs/',
+    destination: '/platforms/python/integrations/fastapi/',
+  },
+  {
+    source: '/platforms/php/configuration/integrations/',
+    destination: '/platforms/php/integrations/',
+  },
+  {
+    source: '/platforms/javascript/enriching-events/error-tracing/',
+    destination: '/platforms/javascript/enriching-events/',
+  },
+  {
+    source: '/organization/integrations/cloudflare-workers/',
+    destination: '/platforms/javascript/guides/cloudflare/',
+  },
+  {
+    source: '/account/require-2fa/',
+    destination: '/organization/authentication/two-factor-authentication/',
+  },
+  {
+    source: '/organization/integrations/msteams/',
+    destination: '/integrations/notification-incidents/msteams/',
+  },
+  {
+    source: '/product/dev-toolbar/:path*',
+    destination: '/product/sentry-toolbar/:path*',
+  },
+  {
+    source: '/organization/integrations/launchdarkly/',
+    destination: '/integrations/feature-flag/launchdarkly/',
+  },
+  {
+    source: '/platforms/javascript/guides/aws-lambda/layer__v9.x/',
+    destination: '/platforms/javascript/guides/aws-lambda/install/layer__v9.x/',
+  },
+  {
+    source: '/platforms/javascript/guides/aws-lambda/npm__v9.x/',
+    destination: '/platforms/javascript/guides/aws-lambda/install/npm__v9.x/',
+  },
+  {
+    source: '/platforms/javascript/guides/aws-lambda/esm-npm__v9.x/',
+    destination: '/platforms/javascript/guides/aws-lambda/install/esm-npm__v9.x/',
+  },
+  {
+    source: '/platforms/javascript/guides/aws-lambda/cjs-npm__v9.x/',
+    destination: '/platforms/javascript/guides/aws-lambda/install/cjs-npm__v9.x/',
+  },
+  {
+    // Previous Nuxt setup method (--import)
+    source: '/platforms/javascript/guides/nuxt/install/cli-import/',
+    destination: '/platforms/javascript/guides/nuxt/install/',
+  },
+  {
+    // Previous Nuxt setup method (top-level import)
+    source: '/platforms/javascript/guides/nuxt/install/limited-server-tracing/',
+    destination: '/platforms/javascript/guides/nuxt/install/',
+  },
+  {
+    // Previous Nuxt setup method (dynamic import)
+    source: '/platforms/javascript/guides/nuxt/install/dynamic-import/',
+    destination: '/platforms/javascript/guides/nuxt/install/',
+  },
+  {
+    // The Nuxt SDK links to this path in its Cloudflare build warning
+    source: '/platforms/javascript/guides/nuxt/install/cloudflare-workers/',
+    destination: '/platforms/javascript/guides/nuxt/cloudflare/',
+  },
+  // The Cloudflare quick starts of these frameworks moved from the Cloudflare guide into the framework guides.
+  {
+    source:
+      '/platforms/javascript/guides/cloudflare/frameworks/:framework(astro|hono|nextjs|nuxt|remix|sveltekit)/',
+    destination: '/platforms/javascript/guides/:framework/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/frameworks/tanstack-start/',
+    destination: '/platforms/javascript/guides/tanstackstart-react/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/remix/frameworks/',
+    destination: '/platforms/javascript/guides/remix/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/frameworks/hydrogen-react-router/',
+    destination: '/platforms/javascript/guides/react-router/hydrogen/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/frameworks/hydrogen-remix/',
+    destination: '/platforms/javascript/guides/remix/hydrogen/',
+  },
+  {
+    // The Cloudflare quick start links to every framework page.
+    source: '/platforms/javascript/guides/cloudflare/frameworks/',
+    destination: '/platforms/javascript/guides/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/nextjs/best-practices/deploying-on-cloudflare/',
+    destination: '/platforms/javascript/guides/nextjs/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/connect/',
+    destination: '/platforms/javascript/guides/node/',
+  },
+  {
+    source: '/platforms/javascript/guides/connect/:path*',
+    destination: '/platforms/javascript/guides/node/',
+  },
+  {
+    source: '/platforms/javascript/guides/node/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/opentelemetry/',
+  },
+  {
+    source: '/platforms/javascript/guides/express/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/opentelemetry/',
+  },
+  {
+    source: '/platforms/javascript/guides/fastify/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/opentelemetry/',
+  },
+  {
+    source: '/platforms/javascript/guides/hapi/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/opentelemetry/',
+  },
+  {
+    source: '/platforms/javascript/guides/hono/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/hono/configuration/integrations/opentelemetry/',
+  },
+  {
+    source: '/platforms/javascript/guides/koa/install/lightweight/',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/opentelemetry/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(node|express|fastify|hapi|hono|koa|nestjs)/install/esm/',
+    destination: '/platforms/javascript/guides/:guide/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(node|express|fastify|hapi|hono|koa|nestjs)/install/commonjs/',
+    destination: '/platforms/javascript/guides/:guide/',
+  },
+  // Express, Fastify, Hapi and Koa are single landing pages, their subpages moved to Node.js.
+  {
+    source: '/platforms/javascript/guides/fastify/features/:path*',
+    destination: '/platforms/javascript/guides/node/configuration/integrations/fastify/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(express|fastify|hapi|koa)__v:version/:path*',
+    destination: '/platforms/javascript/guides/node/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide(express|fastify|hapi|koa)/:path+',
+    destination: '/platforms/javascript/guides/node/:path+/',
+  },
+  {
+    source: '/platforms/javascript/guides/nestjs/install/esm-without-import/',
+    destination: '/platforms/javascript/guides/nestjs/',
+  },
+  {
+    source: '/platforms/javascript/guides/nestjs/install/',
+    destination: '/platforms/javascript/guides/nestjs/',
+  },
+  {
+    source: '/platforms/javascript/guides/react-router/features/instrumentation-api/',
+    destination: '/platforms/javascript/guides/react-router/manual-setup/',
+  },
+  {
+    source: '/platforms/javascript/guides/nextjs/sourcemaps/uploading/',
+    destination: '/platforms/javascript/guides/nextjs/sourcemaps/',
+  },
+  {
+    source: '/organization/integrations/vercel/',
+    destination: '/integrations/deployment/vercel/',
+  },
+  {
+    source: '/product/accounts/quotas/org-stats/',
+    destination: '/product/stats/',
+  },
+  {
+    source: '/internal/:path*',
+    destination: 'https://develop.sentry.dev',
+  },
+  {
+    source: '/development/(contribute|server)/:path*',
+    destination: 'https://develop.sentry.dev',
+  },
+  {
+    source: '/organization/integrations/goastai/',
+    destination: '/integrations/issue-tracking/goast/',
+  },
+  // Third-party integrations consolidated page
+  {
+    source: '/organization/integrations/sonarly-integration/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/releasetag/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/kawachai/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/kosuke/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/opsbrief/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/twill/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/glue-tools/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/synkrony/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/bosun/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/steadwing-rca/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/struct-managed-monitors/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/aether/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/aldena/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/ando/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/arg0-app/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/toolbar/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/vanta-gov/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/xurrent-imr/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/shiprail/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/shipfox/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/specsource/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/mendral/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/nominal/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/terramind/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/flow-relay/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/hookdeck/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/deviera/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/fencer/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/leroy/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/logbrew/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/supernaut/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/superplane/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/bugzero/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/choji/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/clip-by-arito/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/ellipsis/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/phoenix-alerts/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/ploxir/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/stackstitch/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/vedetta/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/applied-edge/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/fml/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/holmes/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/notilens/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/offloop/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/positron-flux/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/productpanda/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/ratchet/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/superlog/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/waroom/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/application-platform/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/fix-with-taskbounty/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/oneleet/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/superlog-responder/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/modem/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/organization/integrations/motir/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  // DOCS-2426: WorkOS is an SSO provider; no dedicated page exists
+  {
+    source: '/organization/integrations/workos/',
+    destination: '/organization/authentication/sso/',
+  },
+  // /integrations/<slug>/ redirects handle the /product/integrations/<slug>/ chain
+  // via the wildcard redirect at the bottom of this file
+  {
+    source: '/integrations/sonarly-integration/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/releasetag/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/kawachai/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/kosuke/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/opsbrief/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/twill/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/glue-tools/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/synkrony/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/bosun/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/steadwing-rca/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/struct-managed-monitors/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/aether/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/aldena/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/ando/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/arg0-app/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/toolbar/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/vanta-gov/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/xurrent-imr/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/shiprail/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/shipfox/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/specsource/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/mendral/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/nominal/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/terramind/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/flow-relay/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/hookdeck/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/deviera/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/fencer/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/leroy/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/logbrew/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/supernaut/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/superplane/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/bugzero/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/choji/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/clip-by-arito/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/ellipsis/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/phoenix-alerts/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/ploxir/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/stackstitch/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/vedetta/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/applied-edge/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/fml/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/holmes/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/notilens/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/offloop/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/positron-flux/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/productpanda/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/ratchet/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/superlog/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/waroom/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/application-platform/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/fix-with-taskbounty/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/oneleet/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/superlog-responder/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/modem/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/integrations/motir/',
+    destination: '/integrations/third-party-integrations/',
+  },
+  {
+    source: '/development/sdk-dev/:path*',
+    destination: 'https://develop.sentry.dev',
+  },
+  {
+    source: '/client-dev/:path*',
+    destination: 'https://develop.sentry.dev/sdk/',
+  },
+  {
+    source: '/clientdev/:path*',
+    destination: 'https://develop.sentry.dev/sdk/',
+  },
+  {
+    source: '/server/config/:path*',
+    destination: 'https://develop.sentry.dev/config/',
+  },
+  {
+    source: '/server/queue/:path*',
+    destination: 'https://develop.sentry.dev/services/queue/',
+  },
+  {
+    source: '/server/:path*',
+    destination: 'https://develop.sentry.dev/self-hosted/',
+  },
+  {
+    source: '/meta/relay/:path*',
+    destination: '/product/relay/:path*',
+  },
+  {
+    source: '/meta/:path*',
+    destination: '/security-legal-pii/security/:path*',
+  },
+  {
+    source: '/:type(hosted|on-premise)/:path*',
+    destination: '/:path*',
+  },
+  {
+    source: '/error-reporting/:path*',
+    destination: '/platform-redirect/',
+  },
+  {
+    source: '/product/cli/:path*',
+    destination: '/cli/:path*',
+  },
+  {
+    source: '/product/reference/:path*',
+    destination: '/concepts/:path*',
+  },
+  {
+    source: '/product/sentry-basics/concepts/:path*',
+    destination: '/concepts/key-terms/:path*',
+  },
+  // The distributed-tracing, integrate-frontend, and integrate-backend
+  // tutorials were consolidated into the single getting-started-tutorial.
+  {
+    source: '/product/sentry-basics/integrate-frontend/create-new-project/',
+    destination: '/product/sentry-basics/getting-started-tutorial/create-new-project/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-frontend/initialize-sentry-sdk/',
+    destination:
+      '/product/sentry-basics/getting-started-tutorial/initialize-sentry-sdk-frontend/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-frontend/generate-first-error/',
+    destination: '/product/sentry-basics/getting-started-tutorial/generate-first-error/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-frontend/upload-source-maps/',
+    destination:
+      '/product/sentry-basics/getting-started-tutorial/enable-readable-stack-traces/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-frontend/configure-scms/',
+    destination: '/integrations/source-code-mgmt/github/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-frontend/:path*',
+    destination: '/product/sentry-basics/getting-started-tutorial/',
+  },
+  {
+    source: '/product/sentry-basics/integrate-backend/:path*',
+    destination: '/product/sentry-basics/getting-started-tutorial/',
+  },
+  {
+    source: '/product/sentry-basics/distributed-tracing/:path*',
+    destination: '/product/sentry-basics/getting-started-tutorial/:path*',
+  },
+  {
+    source: '/security-legal-pii/security/ai-ml-policy/',
+    destination: '/security-legal-pii/security/service-data-usage/',
+  },
+  {
+    source: '/product/security/:path*',
+    destination: '/security-legal-pii/security/:path*',
+  },
+  {
+    source: '/product/data-management-settings/scrubbing/:path*',
+    destination: '/security-legal-pii/scrubbing/:path*',
+  },
+  {
+    source: '/product/data-management-settings/:path*',
+    destination: '/concepts/data-management/:path*',
+  },
+  {
+    source: '/data-management/:path*',
+    destination: '/concepts/data-management/',
+  },
+  {
+    source: '/product/integrations/:path*',
+    destination: '/integrations/:path*',
+  },
+  {
+    source: '/organization/integrations/:path*',
+    destination: '/integrations/:path*',
+  },
+  {
+    source: '/organization/integrations',
+    destination: '/integrations/',
+  },
+  {
+    source: '/product/accounts/:path*',
+    destination: '/account/:path*',
+  },
+  {
+    source: '/accounts/:path*',
+    destination: '/account/:path*',
+  },
+  {
+    source: '/accounts/pricing/:path*',
+    destination: '/pricing/:path*',
+  },
+  {
+    source: '/account/pricing/:path*',
+    destination: '/pricing/:path*',
+  },
+  {
+    source: '/account/sso/:path*',
+    destination: '/organization/authentication/sso/:path*',
+  },
+  {
+    source: '/account/quotas/:path*',
+    destination: '/pricing/quotas/:path*',
+  },
+  {
+    source: '/account/migration/:path*',
+    destination: '/concepts/migration/:path*',
+  },
+  {
+    source: '/organization/quotas/:path*',
+    destination: '/pricing/quotas/:path*',
+  },
+  {
+    source: '/platforms/cocoa/:path*',
+    destination: '/platforms/apple/:path*',
+  },
+  {
+    source: '/platforms/unrealengine/:path*',
+    destination: '/platforms/unreal/:path*',
+  },
+  {
+    source: '/platforms/node/guides/:path*',
+    destination: '/platforms/javascript/guides/:path*',
+  },
+  {
+    source: '/platforms/node/:path*',
+    destination: '/platforms/javascript/guides/node/:path*',
+  },
+  {
+    source: '/platforms/:platform/configuration/capture/:path*',
+    destination: '/platforms/:platform/usage/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/configuration/capture/:path*',
+    destination: '/platforms/:platform/guides/:guide/usage/',
+  },
+  {
+    source: '/platforms/:platform/configuration/install-cdn/:path*',
+    destination: '/platforms/:platform/install/loader/',
+  },
+  {
+    source: '/platforms/:platform/enriching-error-data/set-level/:path*',
+    destination: '/platforms/:platform/usage/set-level/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/enriching-error-data/set-level/:path*',
+    destination: '/platforms/:platform/guides/:guide/usage/set-level/',
+  },
+  {
+    source:
+      '/platforms/:platform/enriching-error-data/additional-data/manage-context/:path*',
+    destination: '/platforms/:platform/enriching-events/context/',
+  },
+  {
+    source:
+      '/platforms/:platform/guides/:guide/enriching-error-data/additional-data/manage-context/:path*',
+    destination: '/platforms/:platform/guides/:guide/enriching-events/context/',
+  },
+  {
+    source:
+      '/platforms/:platform/enriching-error-data/additional-data/adding-tags/:path*',
+    destination: '/platforms/:platform/enriching-events/tags/',
+  },
+  {
+    source: '/platforms/:platform/enriching-error-data/additional-data/:path*',
+    destination: '/platforms/:platform/enriching-events/:path*',
+  },
+  {
+    source:
+      '/platforms/:platform/guides/:guide/enriching-error-data/additional-data/:path*',
+    destination: '/platforms/:platform/guides/:guide/enriching-events/:path*',
+  },
+  {
+    source: '/platforms/:platform/enriching-error-data/:path*',
+    destination: '/platforms/:platform/enriching-events/:path*',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/enriching-error-data/:path*',
+    destination: '/platforms/:platform/guides/:guide/enriching-events/:path*',
+  },
+  {
+    source: '/enriching-error-data/:path*',
+    destination: '/platforms/javascript/enriching-events/:path*',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/integrations/default/',
+    destination: '/platforms/javascript/guides/:guide/configuration/integrations/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/integrations/default/',
+    destination: '/platforms/javascript/guides/:guide/configuration/integrations/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/integrations/plugin/',
+    destination: '/platforms/javascript/guides/:guide/configuration/integrations/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/config/',
+    destination: '/platforms/javascript/guides/:guide/configuration/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/sourcemaps/',
+    destination: '/platforms/javascript/guides/:guide/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/integrations/plugin/',
+    destination: '/platforms/javascript/guides/:guide/configuration/integrations/',
+  },
+  {
+    source: '/platforms/javascript/configuration/environments/',
+    destination: '/platforms/javascript/configuration/options/#environment',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/environments/',
+    destination: '/platforms/javascript/guides/:guide/configuration/options/#environment',
+  },
+  {
+    source: '/platforms/javascript/configuration/draining/',
+    destination: '/platforms/javascript/configuration/apis/#flush',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/draining/',
+    destination: '/platforms/javascript/guides/:guide/configuration/apis/#flush',
+  },
+  {
+    source: '/platforms/javascript/enriching-events/identify-user/',
+    destination: '/platforms/javascript/configuration/apis/#setUser',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/enriching-events/identify-user/',
+    destination: '/platforms/javascript/guides/:guide/configuration/apis/#setUser',
+  },
+  {
+    source: '/platforms/javascript/enriching-events/context/',
+    destination: '/platforms/javascript/configuration/apis/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/enriching-events/context/',
+    destination: '/platforms/javascript/guides/:guide/enriching-events/',
+  },
+  {
+    source: '/platforms/:platform/context/',
+    destination: '/platforms/:platform/enriching-events/context/',
+  },
+  {
+    source: '/platforms/:platform/data-management/advanced-datascrubbing/',
+    destination: '/platforms/:platform/data-management/sensitive-data/',
+  },
+  {
+    source: '/platforms/:platform/data-management/data-forwarding/',
+    destination: '/integrations/data-forwarding/',
+  },
+  {
+    source: '/platforms/:platform/data-management/event-grouping/',
+    destination: '/concepts/data-management/event-grouping/',
+  },
+  {
+    source: '/platforms/:platform/data-management/event-grouping/sdk-fingerprinting/',
+    destination: '/concepts/data-management/event-grouping/fingerprint-rules/',
+  },
+  {
+    source: '/platforms/:platform/data-management/server-side-scrubbing/',
+    destination: '/platforms/:platform/data-management/sensitive-data/',
+  },
+  {
+    source:
+      '/platforms/:platform/guides/:guide/data-management/event-grouping/fingerprint-rules/',
+    destination: '/concepts/data-management/event-grouping/fingerprint-rules/',
+  },
+  {
+    source: '/platforms/:platform/data-management/sensitive-data/advanced-datascrubbing/',
+    destination: '/platforms/:platform/data-management/sensitive-data/',
+  },
+  {
+    source: '/platforms/dotnet/guides/:guide/compatibility/',
+    destination: '/platforms/dotnet/guides/:guide/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/sourcemaps/uploading/multiple-origins/',
+    destination:
+      '/platforms/javascript/guides/:guide/sourcemaps/troubleshooting_js/#multiple-origins',
+  },
+  {
+    source: '/platforms/python/configuration/integrations/:integration/',
+    destination: '/platforms/python/integrations/:integration/',
+  },
+  {
+    source: '/platforms/python/guides/:guide/configuration/integrations/:integration/',
+    destination: '/platforms/python/integrations/:integration/',
+  },
+  {
+    source: '/platforms/python/guides/:guide/',
+    destination: '/platforms/python/integrations/:guide',
+  },
+  {
+    source: '/platforms/python/guides/:guide/:path*',
+    destination: '/platforms/python/:path*',
+  },
+  {
+    source: '/platforms/python/configuration/sampling/',
+    destination: '/platforms/python/sampling/',
+  },
+  {
+    source: '/platforms/php/guides/laravel/other-versions/laravel8-10/usage/:path*',
+    destination: '/platforms/php/guides/laravel/usage/:path*',
+  },
+  {
+    source:
+      '/platforms/php/guides/laravel/other-versions/laravel8-10/configuration/:path*',
+    destination: '/platforms/php/guides/laravel/configuration/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/sourcemaps/troubleshooting_js/uploading-without-debug-ids/',
+    destination: '/platforms/javascript/guides/:guide/sourcemaps/troubleshooting_js/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/sourcemaps/hosting-publicly/',
+    destination:
+      '/platforms/javascript/guides/:guide/sourcemaps/uploading/hosting-publicly',
+  },
+  // The Ionic Capacitor source maps page only exists for the Capacitor guide.
+  {
+    source: '/platforms/javascript/sourcemaps/uploading/ionic-capacitor/',
+    destination:
+      '/platforms/javascript/guides/capacitor/sourcemaps/uploading/ionic-capacitor/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(angular|astro|aws-lambda|azure-functions|bun|cloudflare|cordova|deno|effect|electron|elysia|ember|eve|express|fastify|firebase|flue|gatsby|gcp-functions|hapi|hono|koa|mastra|nestjs|nextjs|nitro|node|nuxt|react|react-router|remix|solid|solidstart|svelte|sveltekit|tanstackstart-react|vue|wasm)/sourcemaps/uploading/ionic-capacitor/',
+    destination:
+      '/platforms/javascript/guides/capacitor/sourcemaps/uploading/ionic-capacitor/',
+  },
+  {
+    source:
+      '/platforms/:platform/sourcemaps/:section(generating|validating|best-practices|artifact-and-release-bundles|)/',
+    destination: '/platforms/:platform/sourcemaps/',
+  },
+  {
+    source:
+      '/platforms/:platform/guides/:guide/sourcemaps/:section(generating|validating|best-practices|artifact-and-release-bundles)/',
+    destination: '/platforms/:platform/guides/:guide/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/sourcemaps/troubleshooting_js/artifact-bundles/',
+    destination: '/platforms/javascript/sourcemaps/troubleshooting_js/debug-ids/',
+  },
+  {
+    source:
+      '/platforms/:platform/guides/:guide/sourcemaps/troubleshooting_js/artifact-bundles/',
+    destination:
+      '/platforms/:platform/guides/:guide/sourcemaps/troubleshooting_js/debug-ids/',
+  },
+  {
+    source: '/platforms/minidump/crashpad/:path*',
+    destination: '/platforms/native/guides/crashpad/:path*',
+  },
+  {
+    source: '/platforms/minidump/breakpad/:path*',
+    destination: '/platforms/native/guides/breakpad/:path*',
+  },
+  {
+    source: '/platforms/:platform/performance/troubleshooting-performance/',
+    destination: '/platforms/:platform/tracing/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/performance/troubleshooting/',
+    destination: '/platforms/:platform/tracing/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/performance/troubleshooting-performance/',
+    destination: '/platforms/:platform/guides/:guide/tracing/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/performance/troubleshooting/',
+    destination: '/platforms/:platform/guides/:guide/tracing/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/performance/connect-services/',
+    destination: '/platforms/:platform/tracing/trace-propagation/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/performance/connect-services/',
+    destination: '/platforms/:platform/guides/:guide/tracing/trace-propagation/',
+  },
+  {
+    source: '/platforms/:platform/usage/distributed-tracing/',
+    destination: '/platforms/:platform/tracing/trace-propagation/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/usage/distributed-tracing/:path*',
+    destination: '/platforms/:platform/guides/:guide/tracing/trace-propagation/:path*',
+  },
+  {
+    source: '/platforms/:platform/distributed-tracing/:path*',
+    destination: '/platforms/:platform/tracing/trace-propagation/:path*',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/distributed-tracing/:path*',
+    destination: '/platforms/:platform/guides/:guide/tracing/trace-propagation/:path*',
+  },
+  {
+    source: '/platforms/python/guides/asgi/:path*',
+    destination: '/platforms/python/configuration/integrations/asgi/',
+  },
+  {
+    source: '/platforms/python/guides/wsgi/:path*',
+    destination: '/platforms/python/configuration/integrations/wsgi/',
+  },
+  {
+    source: '/platforms/:platform/performance/sampling/',
+    destination: '/platforms/:platform/tracing/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/performance/sampling/',
+    destination: '/platforms/:platform/guides/:guide/tracing/',
+  },
+  {
+    source: '/platforms/:platform/performance/:path*',
+    destination: '/platforms/:platform/tracing/:path*',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/performance/:path*',
+    destination: '/platforms/:platform/guides/:guide/tracing/:path*',
+  },
+  {
+    source: '/platforms/java/configuration/integrations/:integration/',
+    destination: '/platforms/java/integrations/:integration/',
+  },
+  {
+    source: '/platforms/java/guides/:guide/configuration/integrations/:integration/',
+    destination: '/platforms/java/guides/:guide/integrations/:integration/',
+  },
+  {
+    source: '/platforms/apple/configuration/integrations/:integration/',
+    destination: '/platforms/apple/integrations/:integration/',
+  },
+  {
+    source: '/platforms/apple/guides/:guide/configuration/integrations/',
+    destination: '/platforms/apple/guides/:guide/integrations/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/micro-frontend-support/',
+    destination: '/platforms/javascript/guides/:guide/best-practices/micro-frontends/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/sentry-testkit/',
+    destination: '/platforms/javascript/guides/:guide/best-practices/sentry-testkit/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/webworkers/',
+    destination: '/platforms/javascript/guides/:guide/best-practices/web-workers/',
+  },
+  {
+    source: '/platforms/apple/guides/:guide/configuration/integrations/:integration/',
+    destination: '/platforms/apple/guides/:guide/integrations/:integration/',
+  },
+  {
+    source: '/platforms/:platform/crons/troubleshooting-crons/',
+    destination: '/platforms/:platform/crons/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/crons/troubleshooting-crons/',
+    destination: '/platforms/:platform/guides/:guide/crons/troubleshooting/',
+  },
+  {
+    source: '/platforms/:platform/guides/:guide/enriching-events/user-feedback/',
+    destination: '/platforms/:platform/guides/:guide/user-feedback/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/user-feedback/v7/',
+    destination: '/platforms/javascript/guides/:guide/user-feedback/configuration__v7.x',
+  },
+  {
+    source: '/platforms/:platform/enriching-events/user-feedback/',
+    destination: '/platforms/:platform/user-feedback/',
+  },
+  {
+    source: '/platforms/javascript/guides/remix/frameworks/hydrogen/',
+    destination: '/platforms/javascript/guides/react-router/hydrogen/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/frameworks/hydrogen/',
+    destination: '/platforms/javascript/guides/react-router/hydrogen/',
+  },
+  // Removed /product/onboarding/ section (content was orphaned and duplicated elsewhere)
+  {
+    source: '/product/onboarding/',
+    destination: '/product/sentry-basics/',
+  },
+  {
+    source: '/product/onboarding/:path*',
+    destination: '/product/sentry-basics/',
+  },
+  // Flatten Explore: redirect old /product/explore/* paths to new /product/* paths
+  {
+    source: '/product/explore/metrics/:path*',
+    destination: '/product/metrics/:path*',
+  },
+  {
+    source: '/product/explore/profiling/:path*',
+    destination: '/product/profiling/:path*',
+  },
+  {
+    source: '/product/explore/discover-queries/:path*',
+    destination: '/product/errors/',
+  },
+  {
+    source: '/product/discover-queries/:path*',
+    destination: '/product/errors/',
+  },
+  {
+    source: '/product/discover-queries',
+    destination: '/product/errors/',
+  },
+  {
+    source: '/product/explore/session-replay/:path*',
+    destination: '/product/session-replay/:path*',
+  },
+  {
+    source: '/product/explore/trace-explorer/:path*',
+    destination: '/product/trace-explorer/:path*',
+  },
+  {
+    source: '/product/explore/logs/:path*',
+    destination: '/product/logs/:path*',
+  },
+  {
+    source: '/platforms/javascript/best-practices/browser-extensions/',
+    destination: '/platforms/javascript/best-practices/shared-environments/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/integrations/trycatch/',
+    destination: '/platforms/javascript/configuration/integrations/browserapierrors/',
+  },
+  {
+    source: '/api/releases/post-organization-release-files/',
+    destination: '/api/releases/update-an-organization-release-file/',
+  },
+  {
+    source: '/api/releases/post-release-deploys/',
+    destination: '/api/releases/create-a-new-deploy-for-an-organization/',
+  },
+  {
+    source: '/api/replays/retrieve-a-count-of-replays/',
+    destination:
+      '/api/replays/retrieve-a-count-of-replays-for-a-given-issue-or-transaction/',
+  },
+  {
+    source: '/api/projects/post-project-user-reports/',
+    destination: '/api/projects/submit-user-feedback/',
+  },
+  {
+    source: '/api/projects/post-project-keys/',
+    destination: '/api/projects/create-a-new-client-key/',
+  },
+  {
+    source: '/api/events/get-group-events-latest/',
+    destination: '/api/events/retrieve-the-latest-event-for-an-issue/',
+  },
+  {
+    source: '/api/organizations/get-event-id-lookup/',
+    destination: '/api/organizations/resolve-an-event-id/',
+  },
+  {
+    source: '/api/events/get-project-group-index/',
+    destination: '/api/events/list-a-projects-issues/',
+  },
+  {
+    source: '/api/events/get-group-hashes/',
+    destination: '/api/events/list-an-issues-hashes/',
+  },
+  {
+    source: '/api/projects/get-project-stats/',
+    destination: '/api/projects/retrieve-event-counts-for-a-project/',
+  },
+  {
+    source: '/api/projects/get-project-index/',
+    destination: '/api/projects/list-your-projects/',
+  },
+  {
+    source: '/api/organizations/get-organization-users/',
+    destination: '/api/organizations/list-an-organizations-members/',
+  },
+  {
+    source: '/api/events/get-group-details/',
+    destination: '/api/events/retrieve-an-issue/',
+  },
+  {
+    source: '/api/events/get-project-event-details/',
+    destination: '/api/events/retrieve-an-event-for-a-project/',
+  },
+  {
+    source: '/api/events/get-group-tag-key-details/',
+    destination: '/api/events/retrieve-tag-details/',
+  },
+  {
+    source: '/api/organizations/get-organization-projects/',
+    destination: '/api/organizations/list-an-organizations-projects/',
+  },
+  {
+    source: '/api/releases/post-project-release-files/',
+    destination: '/api/releases/upload-a-new-project-release-file/',
+  },
+  {
+    source: '/api/projects/get-project-users/',
+    destination: '/api/projects/list-a-projects-users/',
+  },
+  {
+    source: '/api/projects/put-project-details/',
+    destination: '/api/projects/update-a-project/',
+  },
+  {
+    source: '/api/projects/post-debug-files/',
+    destination: '/api/projects/upload-a-new-file/',
+  },
+  {
+    source: '/api/organizations/get-organization-stats/',
+    destination: '/api/organizations/retrieve-event-counts-for-an-organization/',
+  },
+  {
+    source: '/api/releases/post-organization-releases/',
+    destination: '/api/releases/create-a-new-release-for-an-organization/',
+  },
+  {
+    source: '/api/projects/get-project-keys/',
+    destination: '/api/projects/list-a-projects-client-keys/',
+  },
+  {
+    source: '/api/teams/get-organization-teams/',
+    destination: '/api/teams/list-an-organizations-teams/',
+  },
+  {
+    source: '/api/teams/post-team-projects/',
+    destination: '/api/teams/create-a-new-project/',
+  },
+  {
+    source: '/api/events/put-project-group-index/',
+    destination: '/api/events/bulk-mutate-a-list-of-issues/',
+  },
+  {
+    source: '/api/events/delete-project-group-index/',
+    destination: '/api/events/bulk-remove-a-list-of-issues/',
+  },
+  {
+    source: '/api/projects/delete-project-details/',
+    destination: '/api/projects/delete-a-project/',
+  },
+  {
+    source: '/api/events/get-group-events/',
+    destination: '/api/events/list-an-issues-events/',
+  },
+  {
+    source: '/api/organizations/get-organization-details/',
+    destination: '/api/organizations/retrieve-an-organization/',
+  },
+  {
+    source: '/api/organizations/experimental-retrieve-release-health-session-statistics/',
+    destination: '/api/releases/retrieve-release-health-session-statistics/',
+  },
+  {
+    source: '/api/rate-limits/',
+    destination: '/api/ratelimits/',
+  },
+  {
+    source: '/platforms/react-native/manual-setup/codepush/',
+    destination: '/platforms/react-native/sourcemaps/uploading/codepush/',
+  },
+  // Expo-specific pages moved under the Expo guide (/guides/expo/)
+  {
+    source: '/platforms/react-native/manual-setup/expo/',
+    destination: '/platforms/react-native/guides/expo/',
+  },
+  {
+    source: '/platforms/react-native/manual-setup/expo/eas-build-hooks/',
+    destination: '/platforms/react-native/guides/expo/manual-setup/expo/eas-build-hooks/',
+  },
+  {
+    source: '/platforms/react-native/manual-setup/expo/expo-updates/',
+    destination: '/platforms/react-native/guides/expo/manual-setup/expo/expo-updates/',
+  },
+  {
+    source: '/platforms/react-native/manual-setup/expo/gradle/',
+    destination: '/platforms/react-native/guides/expo/manual-setup/expo/gradle/',
+  },
+  {
+    source: '/platforms/react-native/migration/sentry-expo/',
+    destination: '/platforms/react-native/guides/expo/migration/sentry-expo/',
+  },
+  {
+    source: '/platforms/react-native/sourcemaps/uploading/expo/',
+    destination: '/platforms/react-native/guides/expo/sourcemaps/uploading/expo/',
+  },
+  {
+    source: '/platforms/react-native/sourcemaps/uploading/expo-advanced/',
+    destination:
+      '/platforms/react-native/guides/expo/sourcemaps/uploading/expo-advanced/',
+  },
+  {
+    source: '/platforms/react-native/tracing/instrumentation/expo-router/',
+    destination:
+      '/platforms/react-native/guides/expo/tracing/instrumentation/expo-router/',
+  },
+  {
+    source: '/platforms/react-native/tracing/instrumentation/expo-resources/',
+    destination:
+      '/platforms/react-native/guides/expo/tracing/instrumentation/expo-resources/',
+  },
+  {
+    source: '/platforms/react-native/guides/:guide/configuration/integrations/:path*',
+    destination: '/platforms/react-native/guides/:guide/integrations/:path*',
+  },
+  {
+    source:
+      '/platforms/react-native/data-management/debug-files/source-context/data-management/debug-files/upload/',
+    destination: '/platforms/react-native/data-management/debug-files/upload/',
+  },
+  {
+    source: '/ai/agent-skills/',
+    destination: '/ai/agent-plugin/',
+  },
+  // Redirect MCP and CLI pages to their dedicated sites
+  {
+    source: '/ai/mcp/',
+    destination: 'https://mcp.sentry.dev',
+  },
+  {
+    source: '/ai/sentry-cli/',
+    destination: 'https://cli.sentry.dev',
+  },
+  // Redirects for Insights → Product Agents migration
+  {
+    source: '/product/insights/llm-monitoring/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/product/insights/llm-monitoring/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/product/insights/agents/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/product/insights/retention-priorities/',
+    destination: '/organization/dynamic-sampling/',
+  },
+  {
+    source: '/product/insights/mcp/',
+    destination: '/product/mcp-servers/',
+  },
+  // Flatten remaining /insights/ai/agents/* under /product/agents/*
+  {
+    source: '/product/insights/ai/agents/',
+    destination: '/product/agents/',
+  },
+  // Singular dashboard path predates the plural page; must beat the :path* catch-all
+  // or external links 404 after landing on /product/agents/dashboard/
+  {
+    source: '/product/insights/ai/agents/dashboard/',
+    destination: '/product/agents/dashboards/',
+  },
+  {
+    source: '/product/insights/ai/agents/:path*',
+    destination: '/product/agents/:path*',
+  },
+  // Catch bookmarks / intermediate hops that still use the singular segment
+  {
+    source: '/product/agents/dashboard/',
+    destination: '/product/agents/dashboards/',
+  },
+  // MCP moved from /product/agents/mcp/ to /product/mcp-servers/
+  {
+    source: '/product/agents/mcp/',
+    destination: '/product/mcp-servers/',
+  },
+  {
+    source: '/product/agents/mcp/:path*',
+    destination: '/product/mcp-servers/:path*',
+  },
+  {
+    source: '/product/insights/ai/conversations/',
+    destination: '/product/agents/conversations/',
+  },
+  {
+    source: '/product/insights/ai/conversations/:path*',
+    destination: '/product/agents/conversations/:path*',
+  },
+  {
+    source: '/product/insights/ai/mcp/',
+    destination: '/product/mcp-servers/',
+  },
+  {
+    source: '/product/insights/ai/mcp/:path*',
+    destination: '/product/mcp-servers/:path*',
+  },
+  {
+    source: '/product/insights/ai/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/product/insights/ai/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/product/insights/requests/',
+    destination: '/product/dashboards/sentry-dashboards/outbound-api-requests/',
+  },
+  {
+    source: '/product/insights/backend/requests/',
+    destination: '/product/dashboards/sentry-dashboards/outbound-api-requests/',
+  },
+  {
+    source: '/product/insights/queries/',
+    destination: '/product/dashboards/sentry-dashboards/backend/queries/',
+  },
+  {
+    source: '/product/insights/assets/',
+    destination: '/product/dashboards/sentry-dashboards/frontend/assets/',
+  },
+  {
+    source: '/product/insights/web-vitals/:path*',
+    destination: '/product/dashboards/sentry-dashboards/frontend/web-vitals/:path*',
+  },
+  {
+    source: '/product/insights/caches/:path*',
+    destination: '/product/dashboards/sentry-dashboards/backend/caches/',
+  },
+  {
+    source: '/product/insights/queue-monitoring/:path*',
+    destination: '/product/dashboards/sentry-dashboards/backend/queues/',
+  },
+  {
+    source: '/product/insights/mobile-vitals/app-starts/',
+    destination: '/product/dashboards/sentry-dashboards/mobile/mobile-vitals/app-starts/',
+  },
+  {
+    source: '/product/insights/mobile-vitals/screen-loads/',
+    destination:
+      '/product/dashboards/sentry-dashboards/mobile/mobile-vitals/screen-loads/',
+  },
+  {
+    source: '/product/insights/mobile-vitals/:path*',
+    destination: '/product/dashboards/sentry-dashboards/mobile/mobile-vitals/',
+  },
+  {
+    source: '/product/insights/backend/:path*',
+    destination: '/product/dashboards/sentry-dashboards/backend/',
+  },
+  {
+    source: '/product/insights/frontend/:path*',
+    destination: '/product/dashboards/sentry-dashboards/frontend/',
+  },
+  {
+    source: '/product/insights/mobile/:path*',
+    destination: '/product/dashboards/sentry-dashboards/mobile/',
+  },
+  {
+    source: '/product/insights/:path*',
+    destination: '/product/dashboards/sentry-dashboards/',
+  },
+  // Cloudflare setup pages moved from Features to Installation Methods.
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/vite-plugin.md',
+    destination: '/platforms/javascript/guides/cloudflare/install/vite-plugin.md',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/vite-plugin/:path*',
+    destination: '/platforms/javascript/guides/cloudflare/install/vite-plugin/:path*',
+  },
+  // The nodejs_compat entrypoint was removed in v11; the guide covers the single entry.
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/nodejs-compat.md',
+    destination: '/platforms/javascript/guides/cloudflare.md',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/nodejs-compat/:path*',
+    destination: '/platforms/javascript/guides/cloudflare/',
+  },
+  // instrumentD1WithSentry was removed in v11; withSentry() instruments D1 bindings automatically.
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/d1.md',
+    destination: '/platforms/javascript/guides/cloudflare/features/bindings.md',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/d1/:path*',
+    destination: '/platforms/javascript/guides/cloudflare/features/bindings/',
+  },
+  // honoIntegration was removed in v11 in favor of the @sentry/hono SDK.
+  {
+    source:
+      '/platforms/javascript/guides/cloudflare/configuration/integrations/hono/:path*',
+    destination: '/platforms/javascript/guides/hono/',
+  },
+  // Cloudflare AI pages moved from Features to Agent Tracing.
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/agents-sdk.md',
+    destination: '/platforms/javascript/guides/cloudflare/agent-tracing/agents-sdk.md',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/agents-sdk/:path*',
+    destination:
+      '/platforms/javascript/guides/cloudflare/agent-tracing/agents-sdk/:path*',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/workers-ai.md',
+    destination: '/platforms/javascript/guides/cloudflare/agent-tracing/workers-ai.md',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/features/workers-ai/:path*',
+    destination:
+      '/platforms/javascript/guides/cloudflare/agent-tracing/workers-ai/:path*',
+  },
+  // Flue moved from Agent Tracing to its own guide when the SDK-based setup
+  // replaced the `flue add tooling sentry` blueprint.
+  // Map older names directly to the guide to avoid redirect chains. The
+  // Cloudflare page is listed first so its readers keep landing on it.
+  {
+    source: '/platforms/javascript/guides/cloudflare/agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  // The pre-rename names (ai-agent-monitoring, ai-agent-tracing) need their own
+  // rules: the generic rename redirects rewrite them onto agent-tracing/flue
+  // paths, which the rules above redirect again — a 2-hop chain.
+  {
+    source: '/platforms/javascript/guides/cloudflare/ai-agent-monitoring/flue.md',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/ai-agent-monitoring/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/ai-agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/guides/cloudflare/ai-agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/cloudflare/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/flue.md',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/flue/:path*',
+    destination: '/platforms/javascript/guides/flue/',
+  },
+  // Mastra lifted from the Agent Tracing integration page to a standalone guide.
+  // Map older names directly to the guide to avoid redirect chains.
+  {
+    source: '/platforms/javascript/agent-tracing/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/configuration/integrations/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/configuration/integrations/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/integrations/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/configuration/integrations/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/mastra.md',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/mastra/:path*',
+    destination: '/platforms/javascript/guides/mastra/',
+  },
+  // Eve lifted from the Agent Tracing integration page to a standalone guide
+  {
+    source: '/platforms/javascript/agent-tracing/eve.md',
+    destination: '/platforms/javascript/guides/eve/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/eve/:path*',
+    destination: '/platforms/javascript/guides/eve/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/eve.md',
+    destination: '/platforms/javascript/guides/eve/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/eve/:path*',
+    destination: '/platforms/javascript/guides/eve/',
+  },
+  // AI provider setup pages moved from agent-tracing to configuration/integrations
+  {
+    source: '/platforms/javascript/agent-tracing/openai.md',
+    destination: '/platforms/javascript/guides/node/configuration/integrations/openai.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/openai/:path*',
+    destination: '/platforms/javascript/guides/node/configuration/integrations/openai/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/openai.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/openai.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/openai/:path*',
+    destination: '/platforms/javascript/guides/:guide/configuration/integrations/openai/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/anthropic.md',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/anthropic.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/anthropic/:path*',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/anthropic/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/anthropic.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/anthropic.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/anthropic/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/anthropic/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/google-genai.md',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/google-genai.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/google-genai/:path*',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/google-genai/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/google-genai.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/google-genai.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/google-genai/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/google-genai/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/langchain.md',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/langchain.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/langchain/:path*',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/langchain/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/langchain.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/langchain.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/langchain/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/langchain/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/langgraph.md',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/langgraph.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/langgraph/:path*',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/langgraph/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/langgraph.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/langgraph.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/langgraph/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/langgraph/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/vercelai.md',
+    destination:
+      '/platforms/javascript/guides/node/configuration/integrations/vercelai.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/vercelai/:path*',
+    destination: '/platforms/javascript/guides/node/configuration/integrations/vercelai/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/vercelai.md',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/vercelai.md',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing/vercelai/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/vercelai/',
+  },
+  // Browser and mobile Agent Tracing pages now point to the Node.js guides.
+  {
+    source: '/platforms/javascript/agent-tracing.md',
+    destination: '/platforms/javascript/guides/node/agent-tracing.md',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(angular|electron|ember|gatsby|react|solid|svelte|vue)/agent-tracing.md',
+    destination: '/platforms/javascript/guides/node/agent-tracing.md',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide(angular|electron|ember|gatsby|react|solid|svelte|vue)/agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/react-native/agent-tracing.md',
+    destination: '/platforms/javascript/guides/node/agent-tracing.md',
+  },
+  {
+    source: '/platforms/react-native/agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  // Agent Tracing moved to top-level feature
+  // Python AI library pages moved from integrations to agent-tracing
+  {
+    source: '/platforms/python/integrations/anthropic.md',
+    destination: '/platforms/python/agent-tracing/anthropic.md',
+  },
+  {
+    source: '/platforms/python/integrations/anthropic/:path*',
+    destination: '/platforms/python/agent-tracing/anthropic/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/google-genai.md',
+    destination: '/platforms/python/agent-tracing/google-genai.md',
+  },
+  {
+    source: '/platforms/python/integrations/google-genai/:path*',
+    destination: '/platforms/python/agent-tracing/google-genai/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/huggingface_hub.md',
+    destination: '/platforms/python/agent-tracing/huggingface_hub.md',
+  },
+  {
+    source: '/platforms/python/integrations/huggingface_hub/:path*',
+    destination: '/platforms/python/agent-tracing/huggingface_hub/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/langchain.md',
+    destination: '/platforms/python/agent-tracing/langchain.md',
+  },
+  {
+    source: '/platforms/python/integrations/langchain/:path*',
+    destination: '/platforms/python/agent-tracing/langchain/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/langgraph.md',
+    destination: '/platforms/python/agent-tracing/langgraph.md',
+  },
+  {
+    source: '/platforms/python/integrations/langgraph/:path*',
+    destination: '/platforms/python/agent-tracing/langgraph/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/litellm.md',
+    destination: '/platforms/python/agent-tracing/litellm.md',
+  },
+  {
+    source: '/platforms/python/integrations/litellm/:path*',
+    destination: '/platforms/python/agent-tracing/litellm/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/openai.md',
+    destination: '/platforms/python/agent-tracing/openai.md',
+  },
+  {
+    source: '/platforms/python/integrations/openai/:path*',
+    destination: '/platforms/python/agent-tracing/openai/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/openai-agents.md',
+    destination: '/platforms/python/agent-tracing/openai-agents.md',
+  },
+  {
+    source: '/platforms/python/integrations/openai-agents/:path*',
+    destination: '/platforms/python/agent-tracing/openai-agents/:path*',
+  },
+  {
+    source: '/platforms/python/integrations/pydantic-ai.md',
+    destination: '/platforms/python/agent-tracing/pydantic-ai.md',
+  },
+  {
+    source: '/platforms/python/integrations/pydantic-ai/:path*',
+    destination: '/platforms/python/agent-tracing/pydantic-ai/:path*',
+  },
+  // InboundFilters integration was renamed to EventFilters in SDK v11
+  {
+    source: '/platforms/javascript/configuration/integrations/inboundfilters/',
+    destination: '/platforms/javascript/configuration/integrations/eventfilters/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/configuration/integrations/inboundfilters/',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/eventfilters/',
+  },
+  // agent-tracing-browser merged into agent-tracing
+  {
+    source: '/platforms/javascript/agent-tracing-browser/',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/agent-tracing-browser/:path*',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing-browser/',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/agent-tracing-browser/:path*',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source:
+      '/platforms/python/tracing/instrumentation/custom-instrumentation/ai-agents-module.md',
+    destination: '/platforms/python/agent-tracing.md',
+  },
+  {
+    source:
+      '/platforms/python/tracing/instrumentation/custom-instrumentation/ai-agents-module/:path*',
+    destination: '/platforms/python/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/tracing/instrumentation/ai-agents-module/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/ai-agents-module/:path*',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/tracing/instrumentation/ai-agents-module-browser/:path*',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/ai-agents-module-browser/:path*',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  // AI Monitoring / AI Observability → Product Agents
+  // Keep singular dashboard mappings ahead of :path* catch-all rules
+  {
+    source: '/ai/monitoring/agents/dashboard/',
+    destination: '/product/agents/dashboards/',
+  },
+  {
+    source: '/ai/monitoring/agents/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/ai/monitoring/agents/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/ai/monitoring/conversations/',
+    destination: '/product/agents/conversations/',
+  },
+  {
+    source: '/ai/monitoring/conversations/:path*',
+    destination: '/product/agents/conversations/:path*',
+  },
+  {
+    source: '/ai/monitoring/mcp/',
+    destination: '/product/mcp-servers/',
+  },
+  {
+    source: '/ai/monitoring/mcp/:path*',
+    destination: '/product/mcp-servers/:path*',
+  },
+  {
+    source: '/ai/monitoring/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/ai/monitoring/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/ai/observability/agents/dashboard/',
+    destination: '/product/agents/dashboards/',
+  },
+  {
+    source: '/ai/observability/agents/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/ai/observability/agents/:path*',
+    destination: '/product/agents/:path*',
+  },
+  {
+    source: '/ai/observability/conversations/',
+    destination: '/product/agents/conversations/',
+  },
+  {
+    source: '/ai/observability/conversations/:path*',
+    destination: '/product/agents/conversations/:path*',
+  },
+  {
+    source: '/ai/observability/mcp/',
+    destination: '/product/mcp-servers/',
+  },
+  {
+    source: '/ai/observability/mcp/:path*',
+    destination: '/product/mcp-servers/:path*',
+  },
+  {
+    source: '/ai/observability/',
+    destination: '/product/agents/',
+  },
+  {
+    source: '/ai/observability/:path*',
+    destination: '/product/agents/:path*',
+  },
+  // AI Agent Monitoring / ai-agent-tracing → Agent Tracing rename redirects
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring-browser/',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-monitoring-browser/:path*',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring/:path*',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-monitoring-browser/',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/react-native/ai-agent-monitoring/',
+    destination: '/platforms/javascript/guides/node/agent-tracing/',
+  },
+  {
+    source: '/platforms/react-native/ai-agent-monitoring/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/react-native/guides/:guide/ai-agent-monitoring/',
+    destination: '/platforms/react-native/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/php/guides/laravel/ai-monitoring/',
+    destination: '/platforms/php/guides/laravel/agent-tracing/',
+  },
+  {
+    source: '/platforms/php/guides/laravel/ai-monitoring/:path*',
+    destination: '/platforms/php/guides/laravel/agent-tracing/:path*',
+  },
+  // ai-agent-tracing → agent-tracing rename redirects
+  {
+    source: '/platforms/javascript/ai-agent-tracing/',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing-browser/',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/ai-agent-tracing-browser/:path*',
+    destination: '/platforms/javascript/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/ai-agent-tracing-browser/',
+    destination: '/platforms/javascript/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/react-native/ai-agent-tracing/',
+    destination: '/platforms/javascript/guides/node/agent-tracing/',
+  },
+  {
+    source: '/platforms/react-native/ai-agent-tracing/:path*',
+    destination: '/platforms/javascript/guides/node/agent-tracing/:path*',
+  },
+  {
+    source: '/platforms/react-native/guides/:guide/ai-agent-tracing/',
+    destination: '/platforms/react-native/guides/:guide/agent-tracing/',
+  },
+  {
+    source: '/platforms/php/guides/laravel/ai-agent-tracing/',
+    destination: '/platforms/php/guides/laravel/agent-tracing/',
+  },
+  {
+    source: '/platforms/php/guides/laravel/ai-agent-tracing/:path*',
+    destination: '/platforms/php/guides/laravel/agent-tracing/:path*',
+  },
+  {
+    source: '/product/dashboards/sentry-dashboards/performance-metrics/',
+    destination: '/product/dashboards/sentry-dashboards/transaction-summary/',
+  },
+  // End of Insights redirects.
+  {
+    source: '/platforms/javascript/guides/astro/manual-setup/',
+    destination: '/platforms/javascript/guides/astro/',
+  },
+  {
+    source: '/product/error-monitoring/dashboards/',
+    destination: '/product/dashboards/',
+  },
+  {
+    source: '/product/error-monitoring/filtering/',
+    destination: '/concepts/data-management/filtering/',
+  },
+  {
+    source: '/product/error-monitoring/issue-owners/',
+    destination: '/product/issues/ownership-rules/',
+  },
+  {
+    source: '/product/error-monitoring/reprocessing/',
+    destination: '/product/issues/reprocessing/',
+  },
+  {
+    source: '/product/error-monitoring/breadcrumbs/',
+    destination: '/product/issues/issue-details/breadcrumbs/',
+  },
+  {
+    source: '/product/error-monitoring/user-impact/',
+    destination: '/product/issues/issue-details/',
+  },
+  {
+    source: '/product/error-monitoring/stacktrace/',
+    destination: '/product/issues/issue-details/#stack-trace',
+  },
+  {
+    source: '/product/error-monitoring/:path*',
+    destination: '/product/issues',
+  },
+  {
+    source: '/platforms/kotlin-multiplatform/:path*',
+    destination: '/platforms/kotlin/guides/kotlin-multiplatform/:path*',
+  },
+  {
+    source: '/platforms/python/tracing/trace-propagation/:path*',
+    destination: '/platforms/python/tracing/distributed-tracing/:path*',
+  },
+  {
+    source: '/platforms/python/tracing/distributed-tracing/custom-instrumentation',
+    destination: '/platforms/python/tracing/distributed-tracing/custom-trace-propagation',
+  },
+  {
+    source: '/platforms/ruby/guides/:guide/:productfeature/troubleshooting/:path*',
+    destination: '/platforms/ruby/guides/:guide/troubleshooting/:path*',
+  },
+  {
+    source: '/platforms/ruby/:productfeature/troubleshooting/:path*',
+    destination: '/platforms/ruby/troubleshooting/:path*',
+  },
+  {
+    source: '/platforms/php/guides/:guide/:productfeature/troubleshooting/:path*',
+    destination: '/platforms/php/guides/:guide/troubleshooting/:path*',
+  },
+  {
+    source: '/platforms/php/:productfeature/troubleshooting/:path*',
+    destination: '/platforms/php/troubleshooting/:path*',
+  },
+  {
+    source: '/product/explore/feature-flags/:path*',
+    destination: '/product/issues/issue-details/feature-flags/:path*',
+  },
+  {
+    source: '/product/tracing/span-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/product/tracing/:path*',
+    destination: '/concepts/key-terms/tracing/:path*',
+  },
+  {
+    source: '/concepts/key-terms/tracing/span-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/concepts/key-terms/key-terms/tracing/trace-view/',
+    destination: '/concepts/key-terms/tracing/trace-view/',
+  },
+  {
+    source: '/organization/integrations/shortcut/',
+    destination: '/integrations/issue-tracking/shortcut/',
+  },
+  // Former span metrics pages now live in SDK instrumentation guides.
+  {
+    source: '/platforms/javascript/tracing/span-metrics/performance-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/tracing/span-metrics/performance-metrics/',
+    destination:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/javascript/tracing/span-metrics/examples/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/javascript/tracing/span-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/tracing/span-metrics/examples/',
+    destination:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/tracing/span-metrics/',
+    destination:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/python/tracing/span-metrics/performance-metrics/',
+    destination: '/platforms/python/metrics/',
+  },
+  {
+    source: '/platforms/python/tracing/span-metrics/examples/',
+    destination:
+      '/platforms/python/tracing/instrumentation/custom-instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/python/tracing/span-metrics/',
+    destination:
+      '/platforms/python/tracing/instrumentation/custom-instrumentation/#adding-span-attributes',
+  },
+  // Redirects for JavaScript tracing docs
+  {
+    source: '/platforms/javascript/tracing/trace-propagation/:path*',
+    destination: '/platforms/javascript/tracing/distributed-tracing/:path*',
+  },
+  {
+    source: '/platforms/javascript/tracing/instrumentation/performance-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/performance-metrics/',
+    destination:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source:
+      '/platforms/javascript//tracing/instrumentation/span-metrics/performance-metrics/',
+    destination: '/platforms/javascript/tracing/instrumentation/#adding-span-attributes',
+  },
+  {
+    source: '/platforms/javascript/profiling/browser-profiling/',
+    destination: '/platforms/javascript/profiling/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/profiling/browser-profiling/',
+    destination: '/platforms/javascript/guides/:guide/profiling/',
+  },
+  {
+    source: '/platforms/javascript/apis/',
+    destination: '/platforms/javascript/configuration/apis/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/apis/',
+    destination: '/platforms/javascript/guides/:guide/configuration/apis/',
+  },
+  {
+    source: '/platforms/javascript/configuration/sampling/',
+    destination: '/platforms/javascript/sampling/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/configuration/sampling/',
+    destination: '/platforms/javascript/guides/:guide/sampling/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/profiling/node-profiling/',
+    destination: '/platforms/javascript/guides/:guide/profiling/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/profiling/browser-profiling/',
+    destination: '/platforms/javascript/guides/:guide/profiling/',
+  },
+  {
+    source: '/platforms/javascript/guides/:guide/tracing/trace-propagation/:path*',
+    destination: '/platforms/javascript/guides/:guide/tracing/distributed-tracing/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/common/configuration/application-not-responding/:path*',
+    destination: '/platforms/javascript/common/configuration/event-loop-block/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/configuration/application-not-responding/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/event-loop-block/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/configuration/integrations/anr/event-loop-block/:path*',
+    destination:
+      '/platforms/javascript/guides/:guide/configuration/integrations/event-loop-block/:path*',
+  },
+  {
+    source: '/platforms/javascript/tracing/instrumentation/custom-instrumentation/:path*',
+    destination: '/platforms/javascript/tracing/instrumentation/:path*',
+  },
+  {
+    source:
+      '/platforms/javascript/guides/:guide/tracing/instrumentation/custom-instrumentation/:path*',
+    destination: '/platforms/javascript/guides/:guide/tracing/instrumentation/:path*',
+  },
+  {
+    source: '/platforms/flutter/:path*',
+    destination: '/platforms/dart/guides/flutter/:path*',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/upload-debug/',
+    destination: '/platforms/dart/guides/flutter/debug-symbols/',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/upload-debug/#when-to-upload',
+    destination:
+      '/platforms/dart/guides/flutter/debug-symbols/#when-to-upload-debug-symbols',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/upload-debug/#source-context',
+    destination:
+      '/platforms/dart/guides/flutter/debug-symbols/dart-plugin/#configuration',
+  },
+  {
+    source:
+      '/platforms/dart/guides/flutter/upload-debug/#uploading-source-code-context-for-flutter-android-ios-and-macos',
+    destination: '/platforms/dart/guides/flutter/debug-symbols/manual-upload/',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/upload-debug/#uploading-for-android-ndk',
+    destination:
+      '/platforms/dart/guides/flutter/debug-symbols/manual-upload/#android-ndk',
+  },
+  {
+    source:
+      '/platforms/dart/guides/flutter/upload-debug/#automatically-upload-debug-symbols',
+    destination: '/dart/guides/flutter/debug-symbols/dart-plugin/',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/profiling/',
+    destination:
+      '/platforms/dart/guides/flutter/migration/v9-to-v10/#profiling-and-deprecated-apis-are-removed',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/profiling/troubleshooting/',
+    destination:
+      '/platforms/dart/guides/flutter/migration/v9-to-v10/#profiling-and-deprecated-apis-are-removed',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/configuration/integrations/:path*',
+    destination: '/platforms/dart/guides/flutter/integrations/:path*',
+  },
+  {
+    source: '/platforms/dart/guides/flutter/usage/advanced-usage/:path*',
+    destination: '/platforms/dart/guides/flutter/troubleshooting/:path*',
+  },
+  {
+    source: '/platforms/java/scope/',
+    destination: '/platforms/java/enriching-events/',
+  },
+  {
+    source: '/platforms/java/guides/:guide/scope/',
+    destination: '/platforms/java/guides/:guide/enriching-events/',
+  },
+  // Redirects for Trace Explorer
+  {
+    source: '/product/explore/traces',
+    destination: '/product/trace-explorer/',
+  },
+  {
+    source: '/product/explore/traces/',
+    destination: '/product/trace-explorer/',
+  },
+  {
+    source: '/product/explore/new-trace-explorer',
+    destination: '/product/trace-explorer/',
+  },
+  {
+    source: '/product/explore/new-trace-explorer/',
+    destination: '/product/trace-explorer/',
+  },
+  {
+    source: '/product/traces',
+    destination: '/product/trace-explorer/',
+  },
+  {
+    source: '/organization/integrations/expo/',
+    destination: '/integrations/deployment/expo/',
+  },
+  {
+    source: '/product/issues/issue-details/sentry-seer/',
+    destination: '/product/ai-in-sentry/seer/',
+  },
+  {
+    source: '/product/ai-in-sentry/seer/seer-privacy-and-security',
+    destination: '/product/ai-in-sentry/ai-privacy-and-security/',
+  },
+  {
+    source: '/product/ai-in-sentry/seer/issue-fix/:path*',
+    destination: '/product/ai-in-sentry/seer/autofix/:path*',
+  },
+  {
+    source: '/product/ai-in-sentry/seer/root-cause-analysis/',
+    destination: '/product/ai-in-sentry/seer/autofix/',
+  },
+  {
+    source: '/product/ai-in-sentry/seer/issue-autofix/:path*',
+    destination: '/product/ai-in-sentry/seer/autofix/:path*',
+  },
+  {
+    source: '/product/ai-in-sentry/ai-code-review/',
+    destination: '/product/ai-in-sentry/seer/code-review/',
+  },
+  {
+    source: '/product/ai-in-sentry/sentry-prevent-ai/',
+    destination: '/product/ai-in-sentry/seer/code-review/',
+  },
+  {
+    source: '/product/ai-in-sentry/sentry-prevent-ai',
+    destination: '/product/ai-in-sentry/seer/code-review/',
+  },
+  {
+    source: '/product/ai-in-sentry/seer/ai-code-review/',
+    destination: '/product/ai-in-sentry/seer/code-review/',
+  },
+  // .NET profiling guide redirects - consolidate to main profiling page
+  {
+    source: '/platforms/dotnet/guides/uwp/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  // General .NET redirects for UWP (deprecated)
+  {
+    source: '/platforms/dotnet/guides/uwp/:path*',
+    destination: '/platforms/dotnet/guides/maui/',
+  },
+  {
+    source: '/platforms/dotnet/guides/aws-lambda/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  {
+    source: '/platforms/dotnet/guides/azure-functions-worker/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  {
+    source: '/platforms/dotnet/guides/blazor-webassembly/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  {
+    source: '/platforms/dotnet/guides/aspnet/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  {
+    source: '/platforms/dotnet/guides/entityframework/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  {
+    source: '/platforms/dotnet/guides/google-cloud-functions/profiling/:path*',
+    destination: '/platforms/dotnet/profiling/',
+  },
+  // Next.js usage -> capturing-errors rename
+  {
+    source: '/platforms/javascript/guides/nextjs/usage/',
+    destination: '/platforms/javascript/guides/nextjs/capturing-errors/',
+  },
+  {
+    source: '/platforms/javascript/guides/javascript/:path*',
+    destination: '/platforms/javascript/:path*',
+  },
+  // Cron + uptime docs live under Monitors (monitors-and-alerts)
+  {
+    source: '/product/crons/getting-started/cli/',
+    destination: '/cli/crons/',
+  },
+  {
+    source: '/product/monitors-and-alerts/monitors/crons/getting-started/cli/',
+    destination: '/cli/crons/',
+  },
+  {
+    source: '/product/crons/:path*',
+    destination: '/product/monitors-and-alerts/monitors/crons/:path*',
+  },
+  {
+    source: '/product/uptime-monitoring/:path*',
+    destination: '/product/monitors-and-alerts/monitors/uptime-monitoring/:path*',
+  },
+  {
+    source: '/product/new-monitors-and-alerts/:path*',
+    destination: '/product/monitors-and-alerts/:path*',
+  },
+  // Notifications docs live at /product/notifications/ (no longer under alerts or monitors-and-alerts)
+  {
+    source: '/product/monitors-and-alerts/alerts/notifications/:path*',
+    destination: '/product/notifications/:path*',
+  },
+  {
+    source: '/product/monitors-and-alerts/alerts/best-practices/',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+  // DOCS-2550: /product/logs/ redirects now handled in the flatten-explore block above
+  // DOCS-2227: retention-priorities page removed; dynamic-sampling is the closest equivalent
+  {
+    source: '/product/performance/retention-priorities/',
+    destination: '/organization/dynamic-sampling/',
+  },
+  // DOCS-2229: Flutter uses Dart SDK, not JS
+  {
+    source: '/platforms/javascript/guides/flutter/sourcemaps/',
+    destination: '/platforms/dart/guides/flutter/',
+  },
+  {
+    source: '/platforms/javascript/guides/flutter/sourcemaps/:path*',
+    destination: '/platforms/dart/guides/flutter/',
+  },
+  // DOCS-2251: .NET is not a JS guide
+  {
+    source: '/platforms/javascript/guides/dotnet/sourcemaps/',
+    destination: '/platforms/dotnet/',
+  },
+  {
+    source: '/platforms/javascript/guides/dotnet/sourcemaps/:path*',
+    destination: '/platforms/dotnet/',
+  },
+  // DOCS-2319: iOS uses Apple SDK, not JS
+  {
+    source: '/platforms/javascript/guides/apple-ios/sourcemaps/',
+    destination: '/platforms/apple/guides/ios/',
+  },
+  {
+    source: '/platforms/javascript/guides/apple-ios/sourcemaps/:path*',
+    destination: '/platforms/apple/guides/ios/',
+  },
+  // DOCS-2355: ASP.NET Core uses .NET SDK, not JS
+  {
+    source: '/platforms/javascript/guides/dotnet-aspnetcore/sourcemaps/',
+    destination: '/platforms/dotnet/guides/aspnetcore/',
+  },
+  {
+    source: '/platforms/javascript/guides/dotnet-aspnetcore/sourcemaps/:path*',
+    destination: '/platforms/dotnet/guides/aspnetcore/',
+  },
+  // DOCS-2364: wrong prefix; react-router guide is valid under JS
+  {
+    source: '/platforms/javascript/guides/javascript-react-router/sourcemaps/',
+    destination: '/platforms/javascript/guides/react-router/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/javascript-react-router/sourcemaps/:path*',
+    destination: '/platforms/javascript/guides/react-router/sourcemaps/:path*',
+  },
+  // DOCS-2384/2390: python-fastapi is not a JS guide
+  {
+    source: '/platforms/javascript/guides/python-fastapi/sourcemaps/',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/python-fastapi/sourcemaps/:path*',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  // DOCS-2408: php-laravel is not a JS guide
+  {
+    source: '/platforms/javascript/guides/php-laravel/sourcemaps/',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/php-laravel/sourcemaps/:path*',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  // DOCS-2411: java is not a JS guide
+  {
+    source: '/platforms/javascript/guides/java/sourcemaps/',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/java/sourcemaps/:path*',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  // DOCS-2433: python is not a JS guide
+  {
+    source: '/platforms/javascript/guides/python/sourcemaps/',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/python/sourcemaps/:path*',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  // DOCS-2446: javascript-browser is not a valid guide name
+  {
+    source: '/platforms/javascript/guides/javascript-browser/sourcemaps/',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  {
+    source: '/platforms/javascript/guides/javascript-browser/sourcemaps/:path*',
+    destination: '/platforms/javascript/sourcemaps/',
+  },
+  // DOCS-2328: no uninstall page exists; root is the best fallback
+  {
+    source: '/platforms/react-native/uninstall/',
+    destination: '/platforms/react-native/',
+  },
+  // DOCS-2409: API alerts endpoint removed from docs; point to alerts product docs
+  {
+    source: '/api/alerts/create-an-issue-alert-rule-for-a-project/',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+  {
+    source: '/api/alerts/create-an-issue-alert-rule-for-a-project/:path*',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+  // Legacy /product/alerts/ section → /product/monitors-and-alerts/ (GA)
+  // Notification paths must come before the catch-all so they route to /product/notifications/
+  {
+    source: '/product/alerts/notifications/notification-settings/',
+    destination: '/product/notifications/notification-settings/',
+  },
+  {
+    source: '/product/alerts/notifications/:path*',
+    destination: '/product/notifications/:path*',
+  },
+  {
+    source: '/product/alerts/alert-types/',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+  {
+    source: '/product/alerts/create-alerts/',
+    destination: '/product/monitors-and-alerts/alerts/create-alerts/',
+  },
+  {
+    source: '/product/alerts/create-alerts/issue-alert-config/',
+    destination: '/product/monitors-and-alerts/alerts/create-alerts/',
+  },
+  {
+    source: '/product/alerts/create-alerts/metric-alert-config/',
+    destination: '/product/monitors-and-alerts/monitors/',
+  },
+  {
+    source: '/product/alerts/create-alerts/routing-alerts/',
+    destination: '/product/monitors-and-alerts/alerts/create-alerts/',
+  },
+  {
+    source: '/product/alerts/create-alerts/uptime-alert-config/',
+    destination: '/product/monitors-and-alerts/monitors/uptime-monitoring/',
+  },
+  {
+    source: '/product/alerts/',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+  {
+    source: '/product/alerts/:path*',
+    destination: '/product/monitors-and-alerts/alerts/',
+  },
+];
+
+// Matches the trailing `/` of a page URL or the `.md` of its export.
+const MD_SUFFIX_PARAM = ':mdSuffix(/|\\.md)';
+
+// Destination compilation rejects adjacent params (`/:guide:mdSuffix`).
+const ENDS_WITH_PARAM = /:\w+(\([^)]*\))?[*+?]?$/;
+
+/**
+ * Every page has a `.md` export, so a redirected page's `.md` URL must redirect too.
+ * Each redirect whose source ends in `/` also matches its `.md` URL and sends it to the
+ * destination's `.md` export (external, query-string and platform-picker destinations
+ * stay as they are).
+ * Where possible this is folded into the same rule through `:mdSuffix`, so the route
+ * count does not grow. Destinations ending in a param or pointing to the root need a
+ * separate `.md` rule. Wildcards with fixed destinations get a `.md` rule before the
+ * catch-all; wildcards forwarding `:path*` already preserve the requested extension.
+ *
+ * @template {{source: string, destination: string}} R
+ * @param {R[]} list
+ * @returns {R[]}
+ */
+function withMarkdownRedirects(list) {
+  return list.flatMap(r => {
+    const isWildcard = r.source.endsWith('/:path*');
+    if (r.source === '/' || (!r.source.endsWith('/') && !isWildcard)) {
+      return [r];
+    }
+    const keepDestination =
+      /^https?:\/\//.test(r.destination) ||
+      r.destination.includes('?') ||
+      r.destination === '/platform-redirect/';
+    if (isWildcard && (keepDestination || r.destination.includes(':path*'))) {
+      return [r];
+    }
+    const source = isWildcard ? r.source : r.source.slice(0, -1);
+    const [path, hash] = r.destination.split('#');
+    const destination = path.replace(/\/+$/, '');
+    const fragment = hash === undefined ? '' : `#${hash}`;
+
+    const canFold =
+      !isWildcard &&
+      (keepDestination || (destination !== '' && !ENDS_WITH_PARAM.test(destination)));
+    if (canFold) {
+      return [
+        {
+          ...r,
+          source: `${source}${MD_SUFFIX_PARAM}`,
+          destination: keepDestination
+            ? r.destination
+            : `${destination}:mdSuffix${fragment}`,
+        },
+      ];
+    }
+    const markdownRedirect = {
+      ...r,
+      source: `${source}.md`,
+      destination: keepDestination
+        ? r.destination
+        : `${destination || '/index'}.md${fragment}`,
+    };
+    return isWildcard ? [markdownRedirect, r] : [r, markdownRedirect];
+  });
+}
+
+/**
+ * @type {import('next').NextConfig['redirects']}
+ *
+ * loads the redirects based on the environment variable `NEXT_PUBLIC_DEVELOPER_DOCS`
+ */
+// eslint-disable-next-line require-await
+const redirects = async () => {
+  console.log(
+    '🔄 using',
+    isDeveloperDocs ? 'developer' : 'sdk',
+    'docs redirects in next.config.js'
+  );
+  return withMarkdownRedirects(
+    isDeveloperDocs ? developerDocsRedirects : userDocsRedirects
+  ).map(r => {
+    return {...r, permanent: true};
+  });
+};
+
+module.exports = {
+  redirects,
+  developerDocsRedirects,
+  userDocsRedirects,
+  withMarkdownRedirects,
+};

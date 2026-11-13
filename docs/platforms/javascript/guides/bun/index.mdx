@@ -1,0 +1,137 @@
+---
+title: Bun
+description: Learn how to manually set up Sentry in your Bun app and capture your first events.
+sdk: sentry.javascript.bun
+categories:
+  - server
+  - server-only
+---
+
+<FrameworkSelector runtime="bun">
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the SDK
+
+Use the Bun package manager to add the Sentry SDK to your application:
+
+```bash {tabTitle:Bun}
+bun add @sentry/bun
+```
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing**.
+
+<Include name="quick-start-features-expandable" />
+
+### Initialize the Sentry SDK
+
+Sentry should be initialized as early in your app as possible.
+Create a file named `instrument.js` in the root directory of your project and add the code snippet shown below.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```javascript {filename: instrument.js}
+import * as Sentry from "@sentry/bun";
+
+// Ensure to call this before importing any other modules!
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+});
+```
+
+### Build With the Sentry Plugin (Recommended)
+
+We recommend building with the Sentry plugin, because it adds spans from your dependencies, such as database drivers, AI SDKs, and web frameworks like Express, Koa and Hapi. Bun has no runtime hook Sentry can use to instrument those packages, so the plugin rewrites them as `bun build` bundles them.
+
+Add `sentryBunPlugin` from `@sentry/bun/plugin` to your `Bun.build()` call, then run the output the same way, with `--preload`. Errors, the spans you create yourself, and `Bun.serve`, `node:http` and `fetch` spans work either way.
+
+```typescript {filename:build.ts}
+import { sentryBunPlugin } from "@sentry/bun/plugin";
+
+await Bun.build({
+  entrypoints: ["./app.ts"],
+  outdir: "./dist",
+  target: "bun",
+  plugins: [sentryBunPlugin()],
+});
+```
+
+### Apply Instrumentation to Your App
+
+Preload your instrumentation file with the [`--preload`](https://bun.com/docs/runtime#param-preload) flag. This is what guarantees that `Sentry.init()` runs before any other module is loaded.
+
+```bash {tabTitle:From source}
+bun --preload ./instrument.js app.js
+```
+
+```bash {tabTitle:Built output}
+bun --preload ./instrument.js dist/app.js
+```
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with another library, use an integration to capture those logs as Sentry Logs automatically:
+- <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink> for `console` calls
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+For Bun, <PlatformLink to="/configuration/integrations/bunruntimemetrics/">`bunRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+<PlatformContent includePath="getting-started-verify-issues-tracing" switchable />
+
+### View Captured Data in Sentry
+
+Finally, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Bun application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>
+
+</FrameworkSelector>

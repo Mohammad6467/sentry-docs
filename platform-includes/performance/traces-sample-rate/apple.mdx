@@ -1,0 +1,23 @@
+```swift {tabTitle:Swift}
+import Sentry
+
+SentrySDK.start { options in
+    options.tracesSampleRate = 0.2
+}
+```
+
+```objc {tabTitle:Objective-C}
+@import Sentry;
+
+[SentrySDK startWithConfigureOptions:^(SentryOptions * options) {
+    options.tracesSampleRate = @0.2;
+}];
+```
+
+```objc {tabTitle:Objective-C (SentryObjC)}
+#import <SentryObjC/SentryObjC.h>
+
+[SentryObjCSDK startWithConfigureOptions:^(SentryObjCOptions * options) {
+    options.tracesSampleRate = @0.2;
+}];
+```

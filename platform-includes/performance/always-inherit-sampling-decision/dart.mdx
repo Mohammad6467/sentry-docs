@@ -1,0 +1,13 @@
+This example applies only to transaction mode (`SentryTraceLifecycle.static`). Set that lifecycle explicitly during SDK initialization. In stream mode, the sampling context exposes the span's name and attributes, but no parent sampling decision. See <PlatformLink to="/tracing/streamed-spans/#sampling-optional">stream-mode sampling</PlatformLink>.
+
+```dart
+import 'package:sentry/sentry.dart';
+
+double? tracesSampler(SentrySamplingContext samplingContext) {
+  final parentSampled = samplingContext.transactionContext.parentSampled;
+  if (parentSampled != null) {
+    return parentSampled ? 1.0 : 0.0;
+  }
+  // the rest of sampling logic
+}
+```

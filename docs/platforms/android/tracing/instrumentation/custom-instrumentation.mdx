@@ -1,0 +1,31 @@
+---
+title: Custom Instrumentation
+sidebar_order: 20
+description: "Learn how to enable trace and span data-capturing on any action in your app."
+---
+
+<Alert>
+
+To capture transactions and spans customized to your organization's needs, you must first <PlatformLink to="/tracing/">set up tracing.</PlatformLink>
+
+</Alert>
+
+<Include name="tracing/span-attributes-application-metrics-callout" />
+
+<PlatformContent includePath="performance/enable-manual-instrumentation" />
+
+<Alert level="info" title="Using custom instrumentation in Jetpack Compose?">
+
+If you send custom Sentry spans or other telemetry from Jetpack Compose code, use Compose Effect APIs such as
+`LaunchedEffect`, `DisposableEffect`, or `SideEffect` instead of sending from a composable body. Composable bodies
+can run repeatedly during recomposition. See <PlatformLink to="/integrations/jetpack-compose/#custom-telemetry-in-compose">Jetpack Compose</PlatformLink>.
+
+</Alert>
+
+<PlatformContent includePath="performance/add-spans-example" />
+
+<PlatformContent includePath="performance/create-transaction-bound-to-scope" />
+
+<PlatformContent includePath="performance/connect-errors-spans" />
+
+<PlatformContent includePath="performance/improving-data" />

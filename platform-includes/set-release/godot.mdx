@@ -1,0 +1,19 @@
+```gdscript {tabTitle:GDScript} {mdExpandTabs}
+SentrySDK.init(func(options: SentryOptions) -> void:
+	options.release = "my-game@1.2.34"
+)
+```
+
+```csharp {tabTitle:C#}
+SentrySdk.Init(options =>
+{
+    options.Release = "my-game@1.2.34";
+});
+```
+
+By default, the SDK builds the release identifier from `application/config/name`
+and `application/config/version` project settings, using the format: `"{app_name}@{app_version}"`.
+
+You can also use the `{app_name}` and `{app_version}` placeholders when setting the release
+either [programmatically](/platforms/godot/configuration/options/#programmatic-configuration)
+or in the **Project Settings**.

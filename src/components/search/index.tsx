@@ -1,0 +1,515 @@
+'use client';
+
+import {ArrowRightIcon} from '@radix-ui/react-icons';
+import {Button} from '@radix-ui/themes';
+import {captureException} from '@sentry/nextjs';
+import {
+  Hit,
+  Result,
+  SentryGlobalSearch,
+  standardSDKSlug,
+} from '@sentry-internal/global-search';
+import {usePathname} from 'next/navigation';
+import {Fragment, useCallback, useEffect, useRef, useState} from 'react';
+import {createInsightsClient} from 'search-insights';
+import {useOnClickOutside} from 'sentry-docs/clientUtils';
+import {isDeveloperDocs} from 'sentry-docs/docsSite.mjs';
+import {openKapa, prefetchKapa} from 'sentry-docs/lib/kapa';
+import {DocMetrics} from 'sentry-docs/metrics';
+
+import {MagicIcon} from '../cutomIcons/magic';
+import {Logo} from '../logo';
+import styles from './search.module.scss';
+import {SearchResultItems} from './searchResultItems';
+import {relativizeUrl} from './util';
+
+// We dont want to track anyone cross page/sessions or use cookies
+// so just generate a random token each time the page is loaded and
+// treat it as a random user.
+const randomUserToken = (() => {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    // Fallback to a simple random string if crypto.randomUUID() is not available
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }
+})();
+
+// this type is not exported from the global-search package
+type SentryGlobalSearchConfig = ConstructorParameters<typeof SentryGlobalSearch>[0];
+
+const developerDocsSites: SentryGlobalSearchConfig = ['develop', 'docs', 'blog'];
+
+const userDocsSites: SentryGlobalSearchConfig = [
+  {
+    site: 'docs',
+    pathBias: true,
+    platformBias: true,
+    legacyBias: true,
+  },
+  'develop',
+  'blog',
+];
+const config = isDeveloperDocs ? developerDocsSites : userDocsSites;
+const search = new SentryGlobalSearch(config);
+
+// Insights events are fire-and-forget, so rejected credentials are invisible: a
+// stale NEXT_PUBLIC_ALGOLIA_SEARCH_KEY silently 401'd every click for months.
+// Send them ourselves so a rejection gets reported once per page.
+let insightsRejectionReported = false;
+const algoliaInsights = createInsightsClient(async (url, data) => {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      // text/plain keeps this a CORS simple request: an application/json
+      // preflight can be cancelled by the navigation a result click triggers.
+      headers: {'Content-Type': 'text/plain'},
+      keepalive: true,
+    });
+    if (!response.ok && !insightsRejectionReported) {
+      insightsRejectionReported = true;
+      captureException(
+        new Error(`Algolia Insights rejected an event with ${response.status}`)
+      );
+    }
+    return response.ok;
+  } catch (error) {
+    if (!insightsRejectionReported) {
+      insightsRejectionReported = true;
+      captureException(error);
+    }
+    return false;
+  }
+});
+
+const insightsAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
+const insightsApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY;
+// Unconfigured deploys (previews) stay silent: search-insights throws on every
+// call until it is initialized, so nothing may be sent either.
+const insightsEnabled = Boolean(insightsAppId && insightsApiKey);
+if (insightsEnabled) {
+  algoliaInsights('init', {appId: insightsAppId, apiKey: insightsApiKey});
+}
+
+type Props = {
+  autoFocus?: boolean;
+  /** Called before the Kapa modal opens, so a parent overlay can close itself first. */
+  onAskAi?: () => void;
+  path?: string;
+  searchPlatforms?: string[];
+  showChatBot?: boolean;
+  useStoredSearchPlatforms?: boolean;
+};
+
+const STORAGE_KEY = 'sentry-docs-search-platforms';
+
+// Paths outside `/platforms/` whose pages are not about any specific SDK.
+// Restoring the user's last-used SDK on these pages biases query results
+// toward irrelevant SDK pages instead of the product/concept docs they're
+// actually reading. Mirrors PRODUCT_DOC_PREFIXES in scripts/algolia.ts.
+const SDK_AGNOSTIC_PATH_PREFIXES = [
+  '/product/',
+  '/concepts/',
+  '/cli/',
+  '/get-started/',
+  '/integrations/',
+];
+
+export function Search({
+  path,
+  autoFocus,
+  onAskAi,
+  searchPlatforms = [],
+  useStoredSearchPlatforms = true,
+}: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(``);
+  const [results, setResults] = useState([] as Result[]);
+  const [inputFocus, setInputFocus] = useState(false);
+  const [showOffsiteResults, setShowOffsiteResults] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentSearchPlatforms, setCurrentSearchPlatforms] = useState(searchPlatforms);
+  const pathname = usePathname();
+
+  // Load stored platforms on mount
+  useEffect(() => {
+    const isSdkAgnosticPath = SDK_AGNOSTIC_PATH_PREFIXES.some(prefix =>
+      pathname?.startsWith(prefix)
+    );
+    const storedPlatforms = localStorage.getItem(STORAGE_KEY) ?? '[]';
+    if (!storedPlatforms) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(searchPlatforms));
+    } else if (
+      storedPlatforms &&
+      searchPlatforms.length === 0 &&
+      useStoredSearchPlatforms
+    ) {
+      if (isSdkAgnosticPath) {
+        setCurrentSearchPlatforms([]);
+      } else {
+        const platforms = JSON.parse(storedPlatforms);
+        setCurrentSearchPlatforms(platforms);
+      }
+    }
+  }, [useStoredSearchPlatforms, searchPlatforms, pathname]);
+
+  // Update stored platforms when they change
+  useEffect(() => {
+    if (searchPlatforms.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(searchPlatforms));
+      setCurrentSearchPlatforms(searchPlatforms);
+    }
+  }, [searchPlatforms]);
+
+  const handleClickOutside = useCallback((ev: MouseEvent) => {
+    // don't close the search results if the user is clicking the expand button
+    if (
+      (ev.target as HTMLButtonElement).classList.contains(
+        styles['sgs-expand-results-button']
+      )
+    ) {
+      return;
+    }
+
+    setInputFocus(false);
+    setShowOffsiteResults(false);
+  }, []);
+
+  useOnClickOutside({ref, handler: handleClickOutside});
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+    // setup Cmd/Ctrl+K to focus the search input
+    const handleCmdK = (ev: KeyboardEvent) => {
+      if (ev.key === 'k' && (ev.metaKey || ev.ctrlKey)) {
+        ev.preventDefault();
+        inputRef.current?.focus();
+        setInputFocus(true);
+      }
+    };
+    // set up esc to clear the search query and blur the search input if it's empty
+    const handleEsc = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        if (inputRef.current?.value) {
+          setQuery('');
+          return;
+        }
+        setInputFocus(false);
+        setShowOffsiteResults(false);
+        inputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleCmdK);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleCmdK);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [autoFocus]);
+
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
+  const showResults = query.length >= 2 && inputFocus;
+
+  // Keep the dropdown inside the viewport: cap it to whichever side of the input
+  // has more room, and flip above only when that side is the top.
+  useEffect(() => {
+    if (!showResults) {
+      return undefined;
+    }
+    const GUTTER = 16;
+    const update = () => {
+      const input = inputRef.current;
+      const dropdown = resultsRef.current;
+      if (!input || !dropdown) {
+        return;
+      }
+      const {top, bottom} = input.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - bottom - GUTTER * 2;
+      const spaceAbove = top - GUTTER * 2;
+      const flip = spaceAbove > spaceBelow;
+      setPlacement(flip ? 'top' : 'bottom');
+      dropdown.style.setProperty(
+        '--sgs-available-space',
+        `${Math.round(Math.max(flip ? spaceAbove : spaceBelow, 200))}px`
+      );
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, {passive: true});
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update);
+    };
+  }, [showResults]);
+
+  const searchFor = useCallback(
+    async (
+      inputQuery: string,
+      args: Parameters<typeof search.query>[1] & {skipMetrics?: boolean} = {}
+    ) => {
+      setQuery(inputQuery);
+      if (inputQuery.length === 2) {
+        setShowOffsiteResults(false);
+        setResults([]);
+        return;
+      }
+
+      // Only search when we have more than two characters. Ideally we'd do three, but
+      // we want to make sure people can search for Go and RQ
+      if (inputQuery.length < 2) {
+        return;
+      }
+
+      const {skipMetrics, ...searchArgs} = args;
+
+      const queryResults = await search
+        .query(
+          inputQuery,
+          {
+            path,
+            platforms: currentSearchPlatforms.map(
+              platform => standardSDKSlug(platform)?.slug ?? ''
+            ),
+            searchAllIndexes: showOffsiteResults,
+            ...searchArgs,
+          },
+          {clickAnalytics: true, analyticsTags: ['source:documentation']}
+        )
+        .then(siteResults => {
+          if (isDeveloperDocs) {
+            return siteResults;
+          }
+          return siteResults.map(site => {
+            if (site.site !== 'docs') {
+              return site;
+            }
+            return {
+              ...site,
+              // put API results last
+              hits: site.hits.sort((a, b) => {
+                if (a.url.includes('/api/') && !b.url.includes('/api/')) {
+                  return 1;
+                }
+                if (b.url.includes('/api/') && !a.url.includes('/api/')) {
+                  return -1;
+                }
+                return 0;
+              }),
+            };
+          });
+        });
+
+      if (loading) {
+        setLoading(false);
+      }
+
+      // Calculate total results and track metrics
+      const totalResults = queryResults.reduce((sum, site) => sum + site.hits.length, 0);
+      const hasResults = totalResults > 0;
+
+      // Track search query metrics (skip on recursive calls to avoid duplicates)
+      if (!skipMetrics) {
+        DocMetrics.searchQuery(hasResults, totalResults, {
+          query_length: inputQuery.length,
+          includes_platform_filter: currentSearchPlatforms.length > 0,
+          search_all_indexes: showOffsiteResults,
+        });
+
+        // Track zero results specifically (indicates content gaps)
+        if (!hasResults) {
+          DocMetrics.searchZeroResults(inputQuery.length, {
+            includes_platform_filter: currentSearchPlatforms.length > 0,
+          });
+        }
+      }
+
+      if (queryResults.length === 1 && queryResults[0].hits.length === 0) {
+        setShowOffsiteResults(true);
+        // Skip metrics on recursive call to avoid duplicate tracking
+        searchFor(inputQuery, {searchAllIndexes: true, skipMetrics: true});
+      } else {
+        setResults(queryResults);
+      }
+    },
+    [path, currentSearchPlatforms, showOffsiteResults, loading]
+  );
+
+  const totalHits = results.reduce((a, x) => a + x.hits.length, 0);
+
+  const trackSearchResultClick = useCallback((hit: Hit, position: number): void => {
+    if (!insightsEnabled) {
+      return;
+    }
+    try {
+      algoliaInsights('clickedObjectIDsAfterSearch', {
+        eventName: 'documentation_search_result_click',
+        userToken: randomUserToken,
+        index: hit.index,
+        objectIDs: [hit.id],
+        // Positions in Algolia are 1 indexed
+        queryID: hit.queryID ?? '',
+        positions: [position + 1],
+      });
+    } catch (error) {
+      captureException(error);
+    }
+  }, []);
+
+  const removeTags = useCallback((str: string) => {
+    return str.replace(/<\/?[^>]+(>|$)/g, '');
+  }, []);
+
+  const handleSearchResultClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, hit: Hit, position: number): void => {
+      if (hit.id === undefined) {
+        return;
+      }
+
+      trackSearchResultClick(hit, position);
+
+      // edge case when the clicked search result is the currently visited paged
+      if (relativizeUrl(hit.url) === pathname) {
+        // do not navigate to the search result page in this case
+        event.preventDefault();
+
+        // sanitize the title to remove any html tags
+        const title = hit?.title && removeTags(hit.title);
+
+        if (!title) {
+          return;
+        }
+
+        // check for heading with the same text as the title
+        const headings =
+          document
+            .querySelector('main > div.prose')
+            ?.querySelectorAll('h1, h2, h3, h4, h5, h6') ?? [];
+        const foundHeading = Array.from(headings).find(heading =>
+          heading.textContent?.toLowerCase().includes(title.toLowerCase())
+        );
+
+        // close the search results and scroll to the heading if it exists
+        setInputFocus(false);
+        if (foundHeading) {
+          foundHeading.scrollIntoView({
+            behavior: 'smooth',
+          });
+        }
+      }
+    },
+    [pathname, removeTags, trackSearchResultClick]
+  );
+
+  return (
+    <div className={styles.search} ref={ref}>
+      <div className={styles['search-bar']}>
+        <div className={styles['input-wrapper']}>
+          <input
+            type="text"
+            placeholder="Search Docs"
+            aria-label="Search"
+            className={styles['search-input']}
+            value={query}
+            onChange={({target: {value}}) => searchFor(value)}
+            onFocus={() => setInputFocus(true)}
+            ref={inputRef}
+          />
+          <kbd className={styles['search-hotkey']} data-focused={inputFocus}>
+            {inputFocus ? 'esc' : '⌘K'}
+          </kbd>
+        </div>
+        <Fragment>
+          <span className="text-[var(--gray-11)] hidden md:inline">or</span>
+          <Button
+            asChild
+            variant="ghost"
+            color="gray"
+            size="3"
+            radius="medium"
+            className="font-medium text-[var(--foreground)] py-2 px-3 uppercase cursor-pointer hidden md:flex mr-4"
+          >
+            <button
+              type="button"
+              aria-label="Ask AI"
+              onPointerEnter={prefetchKapa}
+              onFocus={prefetchKapa}
+              onClick={() => openKapa({})}
+            >
+              <MagicIcon />
+              <span>Ask AI</span>
+            </button>
+          </Button>
+        </Fragment>
+      </div>
+      {showResults && (
+        <div
+          className={styles['sgs-search-results']}
+          data-placement={placement}
+          ref={resultsRef}
+        >
+          <div className={styles['sgs-ai']}>
+            <button
+              id="ai-list-entry"
+              className={styles['sgs-ai-button']}
+              onPointerEnter={prefetchKapa}
+              onFocus={prefetchKapa}
+              onClick={() => {
+                setInputFocus(false);
+                onAskAi?.();
+                // Open next frame, after the overlay's scroll lock is released
+                // on commit, so Kapa's lock and ours never overlap.
+                requestAnimationFrame(() => {
+                  openKapa({query, submit: true});
+                });
+              }}
+            >
+              <MagicIcon className="size-6 text-[var(--sgs-color-hit-highlight)] flex-shrink-0" />
+              <div className={styles['sgs-ai-button-content']}>
+                <div className={styles['sgs-ai-button-heading']}>
+                  Ask Sentry about{' '}
+                  <span>{query.length > 30 ? query.slice(0, 30) + '...' : query}</span>
+                </div>
+                <div className={styles['sgs-ai-hint']}>
+                  Get an AI-powered answer to your question
+                </div>
+              </div>
+              <ArrowRightIcon className="size-5 text-[var(--sgs-color-hit-highlight)] ml-auto flex-shrink-0" />
+            </button>
+          </div>
+
+          {loading && <Logo loading />}
+
+          {!loading && totalHits > 0 && (
+            <SearchResultItems
+              results={results}
+              onSearchResultClick={({event, hit, position}) =>
+                handleSearchResultClick(event, hit, position)
+              }
+              showOffsiteResults={showOffsiteResults}
+            />
+          )}
+
+          {!loading && !showOffsiteResults && (
+            <div className={styles['sgs-expand-results']}>
+              <button
+                className={styles['sgs-expand-results-button']}
+                onClick={() => setShowOffsiteResults(true)}
+                onMouseOver={() =>
+                  searchFor(query, {searchAllIndexes: true, skipMetrics: true})
+                }
+              >
+                Search <em>{query}</em> across all Sentry sites
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

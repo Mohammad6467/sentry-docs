@@ -1,0 +1,96 @@
+---
+title: React Router Framework
+description: Learn how to set up and configure Sentry in your React Router application (v7.15+) using the installation wizard, capture your first events, and view them in Sentry.
+sdk: sentry.javascript.react-router
+categories:
+  - browser
+  - server
+---
+
+<AgentSetupCallout
+  skill="sentry-react-router-framework-sdk"
+  platformName="React Router"
+/>
+
+<Alert title='Looking for data/declarative mode?' level='info'>
+
+If you're using React Router in data or declarative mode, follow the instructions in our [React guide for v7](/platforms/javascript/guides/react/features/react-router/v7/) or [v8](/platforms/javascript/guides/react/features/react-router/v8/).
+
+</Alert>
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepComponent>
+
+## Install
+
+<PlatformContent includePath="sentry-init/experimental-warning" />
+
+<PlatformContent includePath="sentry-init/install-command" />
+
+<Include name="quick-start-features-expandable" />
+
+<PlatformContent includePath="sentry-init/how-it-works" />
+
+<PlatformContent includePath="sentry-init/framework-wizard" />
+
+
+## Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you already use `console`, capture those calls as Sentry Logs with <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink>.
+We also provide integrations for:
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+On Node.js, <PlatformLink to="/configuration/integrations/noderuntimemetrics/">`nodeRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+The `sentry init` command checks the integration files it creates or modifies before it finishes. To confirm runtime events are reaching Sentry, add a test button to your app and click it:
+
+```tsx
+<button
+  type="button"
+  onClick={() => {
+    throw new Error("Sentry Test Error");
+  }}
+>
+  Test Sentry Error
+</button>
+```
+
+<PlatformContent includePath="getting-started-browser-sandbox-warning" />
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your React Router Framework application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/troubleshooting/#dealing-with-ad-blockers">Set up tunneling</PlatformLink> to avoid ad blockers blocking Sentry events
+- Read the <PlatformLink to="/manual-setup/">manual setup guide</PlatformLink> for advanced configuration
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- If you encountered issues with our installation wizard, try [setting up Sentry manually](/platforms/javascript/guides/react-router/manual-setup/)
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepComponent>

@@ -1,0 +1,126 @@
+## Uploading Source Maps in a Remix Project
+
+If you installed the Remix SDK with the <PlatformLink to="/#install">Sentry Wizard</PlatformLink>, source maps upload was **already configured for you**.
+Whenever you run the `build` script in your `package.json` source maps will be uploaded automatically.
+
+If you installed the SDK manually or the wizard failed, follow the steps below to manually configure source maps upload.
+
+### Using Vite Plugin (Recommended)
+
+Starting from version 2.2.0, Remix supports [Vite](https://vitejs.dev/) as a build tool, and from Remix version 2.7.0 it's stable and the recommended way to build your application.
+
+If you use Vite to build your project, `sentryRemixVitePlugin` uploads your source maps to Sentry. It ships with `@sentry/remix`, so there's no extra package to install.
+
+Add your Sentry organization, project, and auth token to the plugin in your Vite configuration:
+
+```typescript {filename:vite.config.ts}
+import { vitePlugin as remix } from "@remix-run/dev";
+import { sentryRemixVitePlugin } from "@sentry/remix/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    remix({
+      // ... your Remix plugin options
+    }),
+    sentryRemixVitePlugin({
+      // If you use environment variables, you don't need to specify these options
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      org: "___SENTRY_ORG_SLUG___",
+      project: "___SENTRY_PROJECT_SLUG___",
+    }),
+  ],
+
+  // ... rest of your Vite config
+});
+```
+
+The plugin reads `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` from your environment, so you can leave the options out and set those instead.
+
+During a production build, the plugin injects debug IDs, uploads the source maps, and then deletes the `.map` files it generated from your build output. It skips uploading in development, so `vite dev` doesn't create a new set of artifacts on every restart.
+
+If you don't set `build.sourcemap` yourself, the plugin turns on hidden source maps. If you do set it, the plugin keeps your setting and leaves your source maps in place, so you control whether they're deleted with `sourcemaps.filesToDeleteAfterUpload`.
+
+<Alert level="warning">
+  Generating source maps **may expose them to the public**, potentially causing
+  your source code to be leaked. If you turn on source maps yourself, prevent
+  this by configuring your server to deny access to `.js.map` files, or by
+  setting `sourcemaps.filesToDeleteAfterUpload` to delete them after they've
+  been uploaded to Sentry.
+</Alert>
+
+To turn uploading off, set `sourcemaps.disable` to `true`. To keep the debug IDs and upload the maps yourself, set it to `'disable-upload'`.
+
+### Using `npx @sentry/remix --upload-sourcemaps`
+
+If you're not using Vite to build your project, you can use `npx @sentry/remix --upload-sourcemaps` to upload source maps to Sentry.
+
+The Sentry Remix SDK provides a script to automatically create a release and upload source maps after you've built your project.
+Under the hood, it uses the [Sentry CLI](/cli/).
+
+This script requires setting an auth token, which can either be done through a `.sentryclirc` file in the root of your project or through environment variables:
+
+<OrgAuthTokenNote />
+
+```ini {filename:.sentryclirc}
+# Do not commit this file to your repository!
+# Sentry Auth tokens should be treated as a secret.
+[auth]
+token=___ORG_AUTH_TOKEN___
+```
+
+```bash
+export SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+```
+
+Next, adjust your `package.json`'s production build command to upload source maps after the build:
+
+```json {filename:package.json}
+{
+  "scripts": {
+    "build": "remix build --sourcemap && npx @sentry/remix --upload-sourcemaps --org ___ORG_SLUG___ --project ___PROJECT_SLUG___"
+  }
+}
+```
+
+Or run it directly:
+
+```bash {tabTitle:Bash}
+npx @sentry/remix --upload-sourcemaps --org ___ORG_SLUG___ --project ___PROJECT_SLUG___
+
+# For usage details run
+npx @sentry/remix --upload-sourcemaps --help
+```
+
+<Alert>
+
+To generate source maps with your Remix project, you need to call `remix build` with the `--sourcemap` option.
+
+Please refer to the [Remix CLI docs](https://remix.run/docs/en/main/other-api/dev#options) for more information.
+
+</Alert>
+
+### Remove Remix Source Maps
+
+Remix validly discourages hosting source maps in production. After uploading the maps to Sentry, we suggest you delete the `.map` files.
+`npx @sentry/remix --upload-sourcemaps` will automatically try to delete all generated source maps after they're uploaded (unless the `--deleteAfterUpload` flag is provided).
+
+If you want to be extra sure they're deleted, you can use the following shell script:
+
+```bash {tabTitle:Bash}
+find ./public/build -type f -name '*.map' -delete
+find ./build -type f -name '*.map' -delete
+```
+
+```bash {tabTitle:Zsh}
+rm ./public/**/*.map
+rm ./build/**/*.map
+```
+
+Please note that these commands might vary for the operating system or shell you use.
+
+<Alert>
+
+By default, if Sentry can't find the uploaded files it needs, it will attempt to download them from the URLs in the stack trace. To disable this, turn off "Enable JavaScript source fetching" in either your organization's ["Security & Privacy" settings](https://sentry.io/orgredirect/organizations/:orgslug/settings/security-and-privacy/) or your project's [general settings](https://sentry.io/orgredirect/organizations/:orgslug/settings/projects/:projectId/).
+
+</Alert>

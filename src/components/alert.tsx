@@ -1,41 +1,34 @@
-import React from "react";
+import {
+  CheckCircledIcon,
+  ExclamationTriangleIcon,
+  InfoCircledIcon,
+} from '@radix-ui/react-icons';
+import {ReactNode} from 'react';
 
-type Props = {
+import {Callout} from './callout';
+
+type AlertProps = {
+  children?: ReactNode;
+  level?: 'info' | 'warning' | 'success';
   title?: string;
-  level?: string;
-  deepLink?: string;
-  dismiss?: boolean;
-  children?: any;
 };
 
-export default ({
-  title,
-  children,
-  level,
-  deepLink,
-  dismiss = false,
-}: Props): JSX.Element => {
-  let className = "alert";
-  if (level) {
-    className += ` alert-${level}`;
+const ICON_MAP = {
+  info: InfoCircledIcon,
+  warning: ExclamationTriangleIcon,
+  success: CheckCircledIcon,
+} as const;
+
+export function Alert({title, children, level = 'info'}: AlertProps) {
+  const Icon = ICON_MAP[level];
+
+  if (!Icon) {
+    throw new Error(`Invalid alert level: "${level}" passed to Alert component`);
   }
-  if (children.props && typeof children.props.children === "string") {
-    className += " markdown-text-only";
-  }
+
   return (
-    <div className={className} role="alert" id={deepLink}>
-      {dismiss && (
-        <button
-          type="button"
-          className="close"
-          data-dismiss="alert"
-          aria-label="Close"
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
-      )}
-      {title && <h5 className="no_toc">{title}</h5>}
-      <div className="alert-body content-flush-bottom">{children}</div>
-    </div>
+    <Callout role="alert" level={level} Icon={Icon} title={title}>
+      {children}
+    </Callout>
   );
-};
+}

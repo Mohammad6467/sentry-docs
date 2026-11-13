@@ -1,0 +1,33 @@
+To instrument certain regions of your code, you can create a transaction (or a service span in stream mode) to capture them.
+
+The following example creates a transaction/service span that contains an expensive operation (for example, `processOrderBatch`), and sends the result to Sentry:
+
+```dart {tabTitle:Stream Mode (Default)} {mdExpandTabs}
+import 'package:sentry/sentry.dart';
+
+// Pass parentSpan: null to force a new service span.
+// The status is set to error automatically if the callback throws.
+await Sentry.startSpan(
+  'processOrderBatch()',
+  (span) async {
+    span.setAttribute('sentry.op', SentryAttribute.string('task'));
+    processOrderBatch();
+  },
+  parentSpan: null,
+);
+```
+
+```dart {tabTitle:Transaction Mode}
+import 'package:sentry/sentry.dart';
+
+final transaction = Sentry.startTransaction('processOrderBatch()', 'task');
+
+try {
+  processOrderBatch();
+} catch (exception) {
+  transaction.throwable = exception;
+  transaction.status = SpanStatus.internalError();
+} finally {
+  await transaction.finish();
+}
+```

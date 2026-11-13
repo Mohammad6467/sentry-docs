@@ -1,0 +1,28 @@
+Use the `Sentry.withMonitor()` API to monitor a callback and notify you if your periodic task is missed (or doesn't start when expected), if it fails due to a problem in the runtime (such as an error), or if it fails by exceeding its maximum runtime.
+
+`Sentry.withMonitor()` requires SDK version `7.76.0`.
+
+Pass a monitor configuration as the third argument so Sentry creates or updates the monitor from your code:
+
+```javascript
+Sentry.withMonitor(
+  "<monitor-slug>",
+  () => {
+    // Execute your scheduled task here...
+  },
+  {
+    schedule: { type: "crontab", value: "0 * * * *" },
+  }
+);
+```
+
+If the monitor already exists in Sentry, the configuration is optional. See [Upserting Cron Monitors](#upserting-cron-monitors) for all configuration options.
+
+<Alert level="info">
+
+`Sentry.withMonitor()` does not create new a trace. Events and errors that occur within the monitored callback will be associated with the current trace context.
+
+</Alert>
+
+
+If you are using an SDK version prior to `7.76.0`, you can use the `Sentry.captureCheckIn()` API documented below.

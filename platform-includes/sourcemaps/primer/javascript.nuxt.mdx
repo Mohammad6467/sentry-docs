@@ -1,0 +1,59 @@
+`@sentry/nuxt` uses the Sentry Vite Plugin and the Sentry Rollup Plugin to generate and upload source maps automatically. This means that when you run a production build (`nuxt build`), source maps will be generated and uploaded to Sentry, so that errors in Sentry will contain readable stack traces.
+
+## Configure Source Maps Upload
+
+To automatically upload source maps, you need to provide your Sentry auth token, your organization, and project slugs to the `sentry` options in your Nuxt config:
+
+<OrgAuthTokenNote />
+
+```javascript {filename:nuxt.config.ts} {3-7}
+export default defineNuxtConfig({
+  modules: ["@sentry/nuxt/module"],
+  sentry: {
+    org: "___ORG_SLUG___",
+    project: "___PROJECT_SLUG___",
+    authToken: "___ORG_AUTH_TOKEN___",
+  },
+});
+```
+**Note:** Source maps are only generated and uploaded during **production builds** (`nuxt build`). Development builds (`nuxt dev`) do not generate source maps for upload.
+
+See how uploading source maps lets you see the exact line of code that caused an error:
+
+<Arcade src="https://demo.arcade.software/OFrHpZUU739XKR8qUiEP?embed" />
+
+### Enabling Client-side Source Map Generation
+
+To enable client-side source maps, you need to do so explicitly. Nuxt applies default [source map settings](https://nuxt.com/docs/api/nuxt-config#sourcemap), and the Sentry Nuxt Module respects these when they are defined.
+
+To enable client-side source map generation, add the following to your Nuxt configuration:
+
+```javascript {filename:nuxt.config.ts} {2,5-12}
+export default defineNuxtConfig({
+  sourcemap: { client: "hidden" },
+
+  sentry: {
+    sourcemaps: {
+      // As you're enabling client source maps, you probably want to delete them after they're uploaded to Sentry.
+      // Set the appropriate glob pattern for your output folder - some glob examples below:
+      filesToDeleteAfterUpload: [
+        "./**/*.map",
+        ".*/**/public/**/*.map",
+        ".output/**/public/**/*.map"
+    ]
+    }
+  },
+});
+```
+
+<Alert level="warning">
+  Generating source maps **may expose them to the public**, potentially causing your
+  source code to be leaked. You can prevent this by configuring your server to deny access to `.js.map` files, or by
+  using [Sentry Vite Plugin's
+  `sourcemaps.filesToDeleteAfterUpload`](/platforms/javascript/sourcemaps/uploading/bundler-plugin-options/#sourcemaps.filesToDeleteAfterUpload)
+  option to delete source maps after they've been uploaded to Sentry.
+</Alert>
+
+The `hidden` option functions the same as `true`, by enabling source map generation. However, it also suppresses the source map reference comments that normally appear at the end of each generated file in the build output. This option keeps the source maps available without exposing their references in the files.
+
+When you open your browser's developer tools, the browser tries to fetch source maps using the reference comments found in bundled files. If the source maps are uploaded to Sentry and removed from the client side, these references cause 404 errors in the developer tools. The `hidden` option stops these comments from being generated, preventing browsers from trying to fetch missing files and avoiding unnecessary errors.

@@ -1,0 +1,164 @@
+---
+title: Nest.js
+description: "Learn how to set up Sentry in your Nest.js app and capture your first events."
+sdk: sentry.javascript.nestjs
+fallbackGuide: javascript.node
+categories:
+  - server
+  - server-only
+---
+
+<AgentSetupCallout skill="sentry-nestjs-sdk" platformName="Nest.js" />
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+<PlatformContent includePath="getting-started-install" />
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#5](#send-logs) and [#6](#send-application-metrics-).
+This guide also enables **Tracing** and **Profiling**.
+
+<Include name="quick-start-features-expandable" />
+
+### Initialize the Sentry SDK
+
+To import and initialize Sentry, create a file named `instrument.ts` in the root directory of your project and add the code snippet shown below.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+- Profiling: via <PlatformLink to="/configuration/options/#profileSessionSampleRate">`profileSessionSampleRate`</PlatformLink>, <PlatformLink to="/configuration/options/#profileLifecycle">`profileLifecycle`</PlatformLink>, and the profiling integration
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```typescript {filename: instrument.ts}
+import * as Sentry from "@sentry/nestjs";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+// Ensure to call this before requiring any other modules!
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    // enables Profiling
+    nodeProfilingIntegration(),
+  ],
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+  // Enables Profiling for every session.
+  profileSessionSampleRate: 1.0,
+  profileLifecycle: "trace",
+});
+```
+
+### Apply Instrumentation to Your App
+
+Make sure to import the `instrument.ts` file before any other modules:
+
+```typescript {filename: main.ts} {1-2}
+// Import this first!
+import "./instrument";
+
+// Now import other modules
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+}
+
+bootstrap();
+```
+
+Afterward, add the `SentryModule` as a root module to your main module:
+
+```typescript {filename: app.module.ts} {2, 8}
+import { Module } from "@nestjs/common";
+import { SentryModule } from "@sentry/nestjs/setup";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+
+@Module({
+  imports: [
+    SentryModule.forRoot(),
+    // ...other modules
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+```
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+## Capture Nest.js Errors
+
+<PlatformContent includePath="getting-started-capture-errors" />
+
+## Isolate Async Context for Background Jobs
+
+Sentry automatically isolates background jobs using `@Cron()`, `@Interval()`, `@Timeout()`, `@OnEvent()`, and BullMQ `@Processor()` handlers. For other background tasks, wrap your handlers with `Sentry.withIsolationScope()` to prevent breadcrumbs and tags from leaking into unrelated events. See <PlatformLink to="/features/async-context/">Isolate Background Job Scopes</PlatformLink> for details and code examples.
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with another library, use an integration to capture those logs as Sentry Logs automatically:
+- <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink> for `console` calls
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+On Node.js, <PlatformLink to="/configuration/integrations/noderuntimemetrics/">`nodeRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add an intentional error to a NestJS route handler and make a request to it:
+
+```typescript
+throw new Error("Sentry Test Error");
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Nest.js application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+- Extend Sentry to your frontend using one of our [frontend SDKs](/)
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

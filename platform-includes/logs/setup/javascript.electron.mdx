@@ -1,0 +1,21 @@
+Logs are enabled by default. Initialize the SDK in both the main and renderer processes, then use `Sentry.logger` to send logs.
+
+First update the main process file.
+
+```js
+import * as Sentry from "@sentry/electron/main";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+});
+```
+
+Then update all your renderer processes.
+
+```js
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+});
+```

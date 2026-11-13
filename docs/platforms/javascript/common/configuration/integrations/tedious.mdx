@@ -1,0 +1,24 @@
+---
+title: Tedious
+description: "Adds instrumentation for Tedious. (default)"
+supportedCategories:
+  - server
+supported:
+  - javascript.electron
+---
+
+_Import name: `Sentry.tediousIntegration`_
+
+This integration is enabled by default when performance monitoring is enabled. If you'd like to modify your default integrations, read [this](./../#modifying-default-integrations).
+
+The `tediousIntegration` adds instrumentation for the `tedious` library to capture spans using [`@opentelemetry/instrumentation-tedious`](https://www.npmjs.com/package/@opentelemetry/instrumentation-tedious).
+
+```javascript
+Sentry.init({
+  integrations: [Sentry.tediousIntegration()],
+});
+```
+
+## Supported Versions
+
+- `tedious`: `>=1.11.0 <20`

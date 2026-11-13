@@ -1,0 +1,123 @@
+## Uploading Source Maps in a Vue Project
+
+<Alert>
+
+This guide assumes you are using the `@sentry/vue` SDK on version `7.47.0` or higher.
+
+If you are on an older version and you want to upload source maps we recommend upgrading your SDK to the newest version.
+
+</Alert>
+
+### Using the Sentry Wizard
+
+The easiest and recommended way to configure uploading source maps is by using the Sentry Wizard:
+
+<Include name="sourcemaps-wizard-instructions.mdx" />
+
+If you want to configure source maps upload manually, follow the guide for your bundler or build tool below.
+
+### Manual Setup with Vite
+
+If you are using Vue, chances are good you are using Vite to bundle your project.
+You can use the Sentry Vite plugin to automatically create [releases](/product/releases/) and upload source maps to Sentry when bundling your app.
+
+#### Installation
+
+```bash {tabTitle:npm}
+npm install @sentry/bundler-plugins --save-dev
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/bundler-plugins --dev
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/bundler-plugins --save-dev
+```
+
+#### Configuration
+
+Learn more about configuring the plugin in our <PlatformLink to="/sourcemaps/uploading/bundler-plugin-options/">Sentry Vite Plugin documentation</PlatformLink>.
+
+To upload source maps you have to configure an [Organization Token](https://sentry.io/orgredirect/organizations/:orgslug/settings/auth-tokens/).
+
+Alternatively, you can also use a [Personal Token](https://sentry.io/orgredirect/organizations/:orgslug/settings/account/api/auth-tokens/), with the "Project: Read & Write" and "Release: Admin" permissions.
+
+Auth tokens can be passed to the plugin explicitly with the `authToken` option, with a `SENTRY_AUTH_TOKEN` environment variable, or with a `.env.sentry-build-plugin` file in the working directory when building your project.
+You likely want to add the auth token as an environment variable to your CI/CD environment.
+
+<OrgAuthTokenNote />
+
+```bash {filename:.env.sentry-build-plugin}
+SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+```
+
+<Include name="vite-loadenv-hint.mdx" />
+
+Example:
+
+
+```javascript {filename:vite.config.js}
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import { sentryVitePlugin } from "@sentry/bundler-plugins/vite";
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  build: {
+    sourcemap: "hidden", // Source map generation must be turned on
+  },
+  plugins: [
+    vue(),
+
+    // Put the Sentry Vite plugin after all other plugins
+    sentryVitePlugin({
+      org: "___ORG_SLUG___",
+      project: "___PROJECT_SLUG___",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+
+      sourcemaps: {
+        // As you're enabling client source maps, you probably want to delete them after they're uploaded to Sentry.
+        // Set the appropriate glob pattern for your output folder - some glob examples below:
+        filesToDeleteAfterUpload: ["./**/*.map", ".*/**/public/**/*.map", "./dist/**/client/**/*.map"]
+      }
+    }),
+  ],
+});
+```
+
+<Alert level="warning">
+  Generating source maps **may expose them to the public**, potentially causing your
+  source code to be leaked. You can prevent this by configuring your server to deny access to `.js.map` files, or by
+  using <PlatformLink to="/sourcemaps/uploading/bundler-plugin-options/#sourcemaps.filesToDeleteAfterUpload">Sentry Vite Plugin's
+  `sourcemaps.filesToDeleteAfterUpload`</PlatformLink>
+  option to delete source maps after they've been uploaded to Sentry.
+</Alert>
+
+<Alert>
+
+The Sentry Vite plugin doesn't upload source maps in watch-mode/development-mode.
+We recommend running a production build to test your implementation.
+
+</Alert>
+
+### Other Bundlers
+
+In case you are using a bundler other than Vite to build your Vue project, we've compiled a list of guides on how to upload source maps to Sentry for the most popular JavaScript bundlers:
+
+- <PlatformLink to="/sourcemaps/uploading/webpack/">Webpack</PlatformLink>
+- <PlatformLink to="/sourcemaps/uploading/typescript/">
+    TypeScript (tsc)
+  </PlatformLink>
+- <PlatformLink to="/sourcemaps/uploading/rollup/">Rollup</PlatformLink>
+- <PlatformLink to="/sourcemaps/uploading/esbuild/">esbuild</PlatformLink>
+
+## Other Tools
+
+If you're not using any of tools above, we assume you already know how to generate source maps with your toolchain and we recommend you upload them using <PlatformLink to="/sourcemaps/uploading/cli/">Sentry CLI</PlatformLink>.
+
+<Alert>
+
+Though we strongly recommend uploading source maps as part of your build process, for browser applications it's also possible to <PlatformLink to="/sourcemaps/uploading/hosting-publicly/">host your source maps publicly</PlatformLink>.
+
+</Alert>

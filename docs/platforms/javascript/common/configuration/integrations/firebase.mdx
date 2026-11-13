@@ -1,0 +1,35 @@
+---
+title: Firebase
+description: "Adds instrumentation for Firebase. (default)"
+supportedCategories:
+  - server
+notSupported:
+  - javascript.cloudflare
+---
+
+<AvailableSince version="10.22.0" />
+
+<PlatformSection supported={['javascript.hono']}>
+<Alert>
+
+This integration only works in the Node.js, Bun, and Deno runtimes. Not available on Cloudflare Workers.
+
+</Alert>
+</PlatformSection>
+
+_Import name: `Sentry.firebaseIntegration`_
+
+This integration is enabled by default. If you want to disable it, you can [modify your default integrations](./../#modifying-default-integrations).
+
+Adds instrumentation for [Firestore](https://firebase.google.com/docs/firestore) and [Cloud Functions for Firebase](https://firebase.google.com/docs/functions).
+
+```JavaScript
+Sentry.init({
+  integrations: [Sentry.firebaseIntegration()],
+});
+```
+
+## Supported Versions
+
+- `firebase-functions`: `>=6.0.0 <7`
+- `@firebase/firestore`: `>=3.0.0 <5`

@@ -1,0 +1,13 @@
+
+```javascript
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  beforeSend(event) {
+    if (event.user) {
+      // Don't send user's email address
+      delete event.user.email;
+    }
+    return event;
+  },
+});
+```

@@ -1,0 +1,204 @@
+---
+title: App Start Instrumentation
+description: "Learn more about the Sentry App Start Instrumentation for the Flutter SDK."
+caseStyle: camelCase
+supportLevel: production
+sdk: sentry.dart.flutter
+categories:
+  - mobile
+platforms:
+  - flutter
+---
+
+<Include name="dart-stream-mode-general-callout.mdx" />
+
+Sentry's app start instrumentation provides insight into how long your application takes to launch.
+
+<Alert>
+
+App start instrumentation is available on **iOS** and **Android**.
+
+</Alert>
+
+## Instrumentation Behavior
+
+On Android and iOS, the SDK measures startup from native process initialization to the first rendered frame. It reports this as a standalone root named `App Start` with the `app.start` operation, independently of screen-navigation transactions.
+
+The root includes startup breakdown spans and mobile vitals, including the cold or warm start duration. When timing observations are available, the breakdown includes native startup work, `Root Widget Attachment`, `Frame Build`, and `Frame Rasterization`. Frame-build spans cover observed builds that start before the first rasterization; they do not imply that each build produced a displayed frame.
+
+In transaction mode, these are sent together when the transaction finishes. In stream mode, the SDK uses the streaming span APIs.
+
+On web and desktop platforms, a separate integration measures initial display timing. It does not report the native Android/iOS app-start measurements described here.
+
+## Prerequisites
+
+Initialize <PlatformLink to="/manual-setup/#configure">SentryFlutter</PlatformLink> as early as possible and <PlatformLink to="/tracing/">enable tracing</PlatformLink>. Native app-start instrumentation runs automatically on Android and iOS; no additional enable flag is needed.
+
+Root-widget attachment and frame-build spans require `SentryWidgetsFlutterBinding`, or a custom binding with `SentryWidgetsBindingMixin`. `SentryFlutter.init()` creates the Sentry binding if no binding exists.
+
+If you initialize the binding earlier, use `SentryWidgetsFlutterBinding.ensureInitialized()` instead of `WidgetsFlutterBinding.ensureInitialized()`. An existing binding without the mixin can still provide first-frame raster timing, but not attachment or build spans.
+
+App-start measurements assume a pure Flutter application. For add-to-app integrations, native process startup may not represent the Flutter UI startup you want to measure. See [Disable App Start Instrumentation](#disable-app-start-instrumentation) if those measurements aren't useful for your app.
+
+## Verify
+
+Launch your app with tracing enabled. In your Sentry project, find a sampled `App Start` root with operation `app.start`, then inspect its breakdown spans and mobile vitals. It is separate from the first screen's `ui.load` transaction.
+
+## Standalone App Start Tracing
+
+App start is a standalone trace in both stream mode (the default) and transaction mode. To use transaction mode, set `options.traceLifecycle = SentryTraceLifecycle.static`.
+
+App start has its own sampling decision. To sample it independently, inspect the operation in `tracesSampler`: transaction mode exposes it on the transaction context, while stream mode carries it in the span's `sentry.op` attribute.
+
+```dart {tabTitle:Stream Mode (Default)} {mdExpandTabs}
+await SentryFlutter.init((options) {
+  options.tracesSampler = (samplingContext) {
+    final operation = samplingContext.spanContext.attributes['sentry.op']?.value;
+    if (operation == 'app.start') {
+      return 1.0;
+    }
+    return 0.1;
+  };
+});
+```
+
+```dart {tabTitle:Transaction Mode}
+await SentryFlutter.init((options) {
+  options.traceLifecycle = SentryTraceLifecycle.static;
+  options.tracesSampler = (samplingContext) {
+    if (samplingContext.transactionContext.operation == 'app.start') {
+      return 1.0;
+    }
+    return 0.1;
+  };
+});
+```
+
+### Extending the App Start
+
+The app start ends when the first frame renders. If your app does startup work that runs past that point — loading initial data from a server or a database, for example — call `SentryFlutter.extendAppStart()` to include that work in the reported duration, then `SentryFlutter.finishExtendedAppStart()` once it's done.
+
+The only requirement is that `extendAppStart()` runs before the first frame renders, so both the `appRunner` callback of `SentryFlutter.init` and your root widget's `initState` work. Use `initState` when the startup work belongs to your widget tree, and `appRunner` when it doesn't. Either way, pair the two calls in a `try`/`finally` so an early return or a thrown exception can't leave the app start open.
+
+```dart {tabTitle:appRunner} {mdExpandTabs}
+await SentryFlutter.init(
+  (options) {
+    options.tracesSampleRate = 1.0;
+  },
+  appRunner: () async {
+    SentryFlutter.extendAppStart();
+
+    try {
+      runApp(const MyApp());
+      await loadStartupConfiguration();
+    } finally {
+      await SentryFlutter.finishExtendedAppStart();
+    }
+  },
+);
+```
+
+```dart {tabTitle:initState}
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    _loadStartupConfiguration();
+  }
+
+  Future<void> _loadStartupConfiguration() async {
+    // Extend first, before any await, so the call can't slip past the first frame.
+    SentryFlutter.extendAppStart();
+
+    try {
+      await loadStartupConfiguration();
+    } finally {
+      await SentryFlutter.finishExtendedAppStart();
+    }
+  }
+
+  // ...
+}
+```
+
+`initState` runs during the first build, which happens before the first frame is rasterized. Call `extendAppStart()` before the first `await` in that method, though — awaiting first gives the frame a chance to render, and the extension is then refused.
+
+This adds an `Extended App Start` span with the `app.start.extended` operation, covering the time between the two calls.
+
+#### Breaking Down the Extension
+
+To see which part of your startup work took the time, retrieve the extension span and attach children to it. Use the getter that matches your trace lifecycle: `getExtendedAppStartSpan()` in transaction mode, `getExtendedAppStartSpanV2()` in stream mode. The other one returns `null`.
+
+```dart {tabTitle:Stream Mode (Default)} {mdExpandTabs}
+SentryFlutter.extendAppStart();
+
+try {
+  final parent = SentryFlutter.getExtendedAppStartSpanV2();
+  if (parent != null) {
+    await Sentry.startSpan(
+      'Fetch remote config',
+      (span) => fetchRemoteConfig(),
+      parentSpan: parent,
+    );
+  } else {
+    await fetchRemoteConfig();
+  }
+} finally {
+  await SentryFlutter.finishExtendedAppStart();
+}
+```
+
+```dart {tabTitle:Transaction Mode}
+SentryFlutter.extendAppStart();
+
+ISentrySpan? child;
+try {
+  child = SentryFlutter.getExtendedAppStartSpan()?.startChild(
+    'http.client',
+    description: 'Fetch remote config',
+  );
+  await fetchRemoteConfig();
+} finally {
+  await child?.finish();
+  await SentryFlutter.finishExtendedAppStart();
+}
+```
+
+In stream mode, `startSpan` ends the child for you once the callback completes, so it only needs the parent. The extension span isn't the active span, which is why you have to pass it as `parentSpan` rather than relying on automatic nesting.
+
+Both getters return `null` when the app start isn't extended. In transaction mode the null-aware calls take care of that. In stream mode, the example checks for a parent because passing `parentSpan: null` starts a root span instead of a child.
+
+Spans you start under the extension keep the app start open until they finish, so finish them too if they shouldn't delay it.
+
+<Alert level="warning">
+
+Always finish what you extend. While an extension is open the app start is still in progress, and if it hits its 30-second deadline first, the extension is dropped and the reported duration falls back to the first frame.
+
+</Alert>
+
+<Alert>
+
+Extending requires an active, sampled app start on Android or iOS. `extendAppStart()` does nothing if there is no eligible app start, the first frame has already rendered, or an extension has already been requested.
+
+</Alert>
+
+## Disable App Start Instrumentation
+
+To disable native app-start tracing on Android and iOS, remove `StandaloneAppStartIntegration` during initialization. This requires an internal import, which can change between SDK versions.
+
+```dart
+// ignore_for_file: implementation_imports, invalid_use_of_internal_member
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sentry_flutter/src/app_start/standalone/standalone_app_start_integration.dart';
+
+await SentryFlutter.init((options) {
+  final appStartIntegrations = options.integrations
+      .whereType<StandaloneAppStartIntegration>()
+      .toList();
+  for (final integration in appStartIntegrations) {
+    options.removeIntegration(integration);
+  }
+});
+```
+
+The integration is only registered on supported platforms. This lookup is safe when it is absent. Web and desktop initial-display tracking is handled separately by `GenericAppStartIntegration`.

@@ -1,0 +1,59 @@
+import {DocNode} from 'sentry-docs/docTree';
+import {FrontMatter} from 'sentry-docs/types';
+
+export type SidebarNode = {
+  children: SidebarNode[];
+  frontmatter: FrontMatter;
+  path: string;
+};
+
+export type SidebarProps = {
+  path: string[];
+  versions?: string[];
+};
+
+export type DefaultSidebarProps = SidebarProps & {
+  node: SidebarNode;
+  path: string[];
+};
+
+export type ExternalSidebarLink = {
+  href: string;
+  order: number;
+  title: string;
+};
+
+export type ProductSidebarProps = {
+  items: {root: string; title: string}[];
+  rootNode: DocNode;
+  extraLinks?: ExternalSidebarLink[];
+};
+
+export type PlatformSidebarProps = {
+  platformName: string;
+  rootNode: DocNode;
+  guideName?: string;
+};
+
+export type NavNode = {
+  context: {
+    draft: boolean;
+    title: string;
+    beta?: boolean;
+    new?: boolean;
+    early_access?: boolean;
+    section_end_divider?: boolean;
+    sidebar_hidden?: boolean;
+    sidebar_order?: number;
+    sidebar_section?:
+      | 'features'
+      | 'configuration'
+      | 'detect'
+      | 'debug'
+      | 'measure'
+      | 'automate'
+      | 'platform';
+    sidebar_title?: string;
+  };
+  path: string;
+};

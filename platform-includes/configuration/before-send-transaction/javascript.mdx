@@ -1,0 +1,12 @@
+```javascript
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  traceLifecycle: "static",
+  beforeSendTransaction(event) {
+    if (event.transaction === "/unimportant/route") {
+      return null;
+    }
+    return event;
+  },
+});
+```

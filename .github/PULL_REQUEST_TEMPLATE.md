@@ -1,0 +1,39 @@
+<!-- Keep the urgency section so automation can prioritize this PR. You may delete other sections you don't need. -->
+
+## DESCRIBE YOUR PR
+
+_Tell us what you're changing and why. If your PR **resolves an issue**, please link it so it closes automatically._
+
+## IS YOUR CHANGE URGENT?
+
+Help us prioritize incoming PRs by letting us know when the change needs to go live.
+Select exactly one option. For deadlines, replace `YYYY-MM-DD` with the due date. You can update this information later by editing the PR description.
+
+- [ ] Urgent deadline (GA date, etc.): YYYY-MM-DD
+- [ ] Other deadline: YYYY-MM-DD
+- [ ] No deadline: Not urgent, can wait up to 1 week+
+
+## SLA
+
+- Teamwork makes the dream work, so please add a reviewer to your PRs.
+- Please give the docs team up to 1 week to review your PR unless you've supplied a deadline.
+
+Thanks in advance for your help!
+
+## PRE-MERGE CHECKLIST
+
+_Make sure you've checked the following before merging your changes:_
+
+- [ ] Checked Vercel preview for correctness, including links
+- [ ] PR was reviewed and approved by any necessary SMEs (subject matter experts)
+- [ ] PR was reviewed and approved by a member of the [Sentry docs team](https://github.com/orgs/getsentry/teams/docs)
+
+## LEGAL BOILERPLATE
+
+<!-- Sentry employees and contractors can delete or ignore this section. -->
+
+Look, I get it. The entity doing business as "Sentry" was incorporated in the State of Delaware in 2015 as Functional Software, Inc. and is gonna need some rights from me in order to utilize my contributions in this here PR. So here's the deal: I retain all rights, title and interest in and to my contributions, and by keeping this boilerplate intact I confirm that Sentry can use, modify, copy, and redistribute my contributions, under Sentry's choice of terms.
+
+## EXTRA RESOURCES
+
+- [Sentry Docs contributor guide](https://docs.sentry.io/contributing/)

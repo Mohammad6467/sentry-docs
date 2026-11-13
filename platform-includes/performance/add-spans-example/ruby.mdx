@@ -1,0 +1,41 @@
+## Add More Spans to the Transaction
+
+The next example contains the implementation of the hypothetical `process_item` function called from the code snippet in the previous section. Our SDK can determine if there is currently an open transaction and add all newly created spans as child operations to that transaction. You can choose the values of `op` and `description`.
+
+```ruby
+class OrdersController < ApplicationController
+  def create
+    order = Order.new
+
+    Sentry.with_child_span(op: :process_items, description: 'processing items') do |span|
+      span&.set_data(:key, 'value')
+
+      order.process_items(params)
+    end
+  end # the child span ends with the block
+end
+```
+
+Your new span will be nested under whichever span is currently
+running on the scope, otherwise it will be at the root of the transaction event.
+
+Alternatively, you can manually grab the current transaction and use
+its `with_child_span` method to always create a top-level span.
+
+```ruby
+class OrdersController < ApplicationController
+  def create
+    order = Order.new
+    transaction = Sentry.get_current_scope.get_transaction
+
+    if transaction
+      transaction.with_child_span(op: :process_items, description: 'processing items') do |span|
+        span&.set_data(:key, 'value')
+        order.process_items(params)
+      end # the child span ends with the block
+    else
+      order.process_items(params)
+    end
+  end
+end
+```

@@ -1,6 +1,21 @@
 - slug: koa
   type: framework
   name: Koa
+- slug: hapi
+  type: framework
+  name: Hapi
+- slug: hono
+  type: framework
+  name: Hono
+- slug: firebase
+  type: framework
+  name: Firebase
+- slug: fastify
+  type: framework
+  name: Fastify
+- slug: nestjs
+  type: framework
+  name: Nest.js
 - slug: node
   type: language
   name: Node.js
@@ -62,13 +77,13 @@
 - slug: elixir
   type: language
   name: Elixir
-  case_style: PascalCase
+  case_style: snake_case
 - slug: objc
   type: language
   name: Objective-C
 - slug: csharp
   type: language
-  name: "C#"
+  name: 'C#'
   case_style: PascalCase
 - slug: go
   type: language
@@ -99,3 +114,30 @@
   type: framework
   name: Capacitor
   case_style: camelCase
+- slug: flutter
+  type: framework
+  name: Flutter
+  case_style: camelCase
+- slug: dart
+  type: language
+  name: Dart
+  case_style: camelCase
+- slug: bun
+  type: framework
+  name: Bun
+- slug: deno
+  type: framework
+  name: Deno
+- slug: powershell
+  type: language
+  name: PowerShell
+  case_style: PascalCase
+- slug: nintendo-switch
+  type: language
+  name: Nintendo Switch
+- slug: xbox
+  type: language
+  name: Xbox
+- slug: playstation
+  type: language
+  name: PlayStation

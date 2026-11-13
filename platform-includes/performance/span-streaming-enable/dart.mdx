@@ -1,0 +1,10 @@
+```dart
+import 'package:sentry/sentry.dart';
+
+Future<void> main() async {
+  await Sentry.init((options) {
+    options.dsn = '___PUBLIC_DSN___';
+    options.tracesSampleRate = 1.0;
+  });
+}
+```

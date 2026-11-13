@@ -1,0 +1,79 @@
+```javascript {tabTitle:app.json/app.config.json} {mdExpandTabs}
+{
+  "expo": {
+    "plugins": [
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "note": "Use SENTRY_AUTH_TOKEN env to authenticate with Sentry.",
+          "project": "___PROJECT_SLUG___",
+          "organization": "___ORG_SLUG___"
+        }
+      ]
+    ]
+  }
+}
+```
+
+```javascript {tabTitle:app.config.js}
+const { withSentry } = require("@sentry/react-native/expo");
+
+const config = {
+  name: "Expo Example",
+  slug: "expo-example",
+};
+
+module.exports = withSentry(config, {
+  url: "https://sentry.io/",
+  // Use SENTRY_AUTH_TOKEN env to authenticate with Sentry.
+  project: "___PROJECT_SLUG___",
+  organization: "___ORG_SLUG___",
+});
+```
+
+```typescript {tabTitle:app.config.ts}
+import { ExpoConfig } from "expo/config";
+import { withSentry } from "@sentry/react-native/expo";
+
+const config: ExpoConfig = {
+  name: "Expo Example",
+  slug: "expo-example",
+};
+
+export default withSentry(config, {
+  url: "https://sentry.io/",
+  // Use SENTRY_AUTH_TOKEN env to authenticate with Sentry.
+  project: "___PROJECT_SLUG___",
+  organization: "___ORG_SLUG___",
+});
+```
+
+<Alert>
+
+`npx expo install` adds the bare `@sentry/react-native` to the plugins array. Both `@sentry/react-native` and `@sentry/react-native/expo` are valid plugin paths. Expo resolves them the same way.
+
+</Alert>
+
+Add your auth token to a `.env.local` file in the root of your project:
+
+```properties {filename:.env.local}
+# DO NOT COMMIT YOUR AUTH TOKEN
+SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+```
+
+<Alert>
+
+Do not commit your auth token. Add `.env.local` to your `.gitignore`.
+
+</Alert>
+
+For EAS Build, store the token as an [EAS environment variable](https://docs.expo.dev/eas/environment-variables/manage/) instead of a `.env.local` file. Set it for each environment you build. You can pass `--environment` more than once:
+
+```bash
+eas env:set --name SENTRY_AUTH_TOKEN --value ___ORG_AUTH_TOKEN___ --environment production --environment preview --visibility sensitive
+```
+
+Each EAS build uses the environment set by the [`environment`](https://docs.expo.dev/eas/environment-variables/usage/#using-environment-variables-with-expo-build) field of its build profile in `eas.json`. If a profile doesn't set `environment`, EAS uses `production` for store builds (`distribution: "store"`), `development` for development builds (`developmentClient: true`), and `preview` for everything else. Set the token for every environment your profiles use, or source maps won't upload for those builds.
+
+Use `sensitive` visibility if you also upload source maps from your machine, for example after `eas update`. The upload command reads the token from your local environment or `.env` files, not from EAS. Pull it with `eas env:pull --environment production`, or run the upload through `eas env:exec production 'npx @sentry/expo-upload-sourcemaps dist'`. Values with `secret` visibility never leave Expo servers, so they work for EAS Build but can't be pulled for local uploads.

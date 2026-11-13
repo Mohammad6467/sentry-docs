@@ -1,0 +1,117 @@
+'use client';
+
+import {Children, cloneElement, ReactElement} from 'react';
+
+import {KeywordSelector} from './keywordSelector';
+import {OrgAuthTokenCreator} from './orgAuthTokenCreator';
+
+export const KEYWORDS_REGEX = /\b___(?:([A-Z_][A-Z0-9_]*)\.)?([A-Z_][A-Z0-9_]*)___\b/g;
+export const ORG_AUTH_TOKEN_REGEX = /___ORG_AUTH_TOKEN___/g;
+export const SDK_PACKAGE_REGEX = /___SDK_PACKAGE___/g;
+const CURRENT_URL_TOKEN = '___CURRENT_URL___';
+
+type ChildrenItem = ReturnType<typeof Children.toArray>[number] | React.ReactNode;
+
+type MakeKeywordsClickableOptions = {
+  sdkPackage?: string | null;
+};
+
+export function makeKeywordsClickable(
+  children: React.ReactNode,
+  options: MakeKeywordsClickableOptions = {}
+) {
+  const {sdkPackage} = options;
+  const items = Children.toArray(children);
+
+  return items.reduce((arr: ChildrenItem[], child) => {
+    if (typeof child !== 'string') {
+      const updatedChild = cloneElement(
+        child as ReactElement,
+        {},
+        makeKeywordsClickable((child as ReactElement).props.children, options)
+      );
+      arr.push(updatedChild);
+      return arr;
+    }
+
+    const text = child.includes(CURRENT_URL_TOKEN)
+      ? replaceCurrentUrlTokens(child, window.location.href)
+      : child;
+
+    // Reset regex lastIndex before testing to avoid stale state from previous matches
+    ORG_AUTH_TOKEN_REGEX.lastIndex = 0;
+    KEYWORDS_REGEX.lastIndex = 0;
+    SDK_PACKAGE_REGEX.lastIndex = 0;
+
+    if (ORG_AUTH_TOKEN_REGEX.test(text)) {
+      makeOrgAuthTokenClickable(arr, text);
+    } else if (SDK_PACKAGE_REGEX.test(text)) {
+      // Simple string replacement for SDK package (fallback to @sentry/browser on non-platform pages)
+      arr.push(text.replace(SDK_PACKAGE_REGEX, sdkPackage || '@sentry/browser'));
+    } else if (KEYWORDS_REGEX.test(text)) {
+      const isDSNKeyword = /___PUBLIC_DSN___/.test(text);
+      makeProjectKeywordsClickable(arr, text, isDSNKeyword);
+    } else {
+      arr.push(text);
+    }
+
+    return arr;
+  }, [] as ChildrenItem[]);
+}
+
+export function replaceCurrentUrlTokens(value: string, currentUrl: string) {
+  const url = new URL(currentUrl);
+  return value.replaceAll(CURRENT_URL_TOKEN, `${url.origin}${url.pathname}`);
+}
+
+function makeOrgAuthTokenClickable(arr: ChildrenItem[], str: string) {
+  runRegex(arr, str, ORG_AUTH_TOKEN_REGEX, lastIndex => (
+    <OrgAuthTokenCreator key={`org-token-${lastIndex}`} />
+  ));
+}
+
+function makeProjectKeywordsClickable(
+  arr: ChildrenItem[],
+  str: string,
+  isDSNKeyword = false
+) {
+  runRegex(arr, str, KEYWORDS_REGEX, (lastIndex, match) => (
+    <KeywordSelector
+      key={`project-keyword-${lastIndex}`}
+      index={lastIndex}
+      group={match[1] || 'PROJECT'}
+      keyword={match[2]}
+      showPreview={isDSNKeyword}
+    />
+  ));
+}
+
+function runRegex(
+  arr: ChildrenItem[],
+  str: string,
+  regex: RegExp,
+  cb: (lastIndex: number, match: RegExpExecArray) => React.ReactNode
+): void {
+  regex.lastIndex = 0;
+
+  let match: RegExpExecArray | null;
+  let lastIndex = 0;
+
+  while ((match = regex.exec(str)) !== null) {
+    const afterMatch = regex.lastIndex - match[0].length;
+    const before = str.substring(lastIndex, afterMatch);
+
+    if (before.length > 0) {
+      arr.push(before);
+    }
+
+    arr.push(cb(lastIndex, match));
+
+    lastIndex = regex.lastIndex;
+  }
+
+  const after = str.substring(lastIndex);
+  if (after.length > 0) {
+    arr.push(after);
+  }
+}

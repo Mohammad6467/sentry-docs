@@ -1,0 +1,234 @@
+---
+title: HTTP Integration
+description: "Learn more about the Sentry HTTP integration for the Dart SDK."
+sidebar_order: 2
+platforms:
+  - dart
+  - flutter
+---
+
+<Include name="dart-stream-mode-general-callout.mdx" />
+
+## Using the `SentryHttpClient` function
+
+You can use the `SentryHttpClient` and call its methods directly, or you can use it with the [`runWithClient`](https://pub.dev/documentation/http/latest/http/runWithClient.html) function. If you need to use a fresh instance of the `client` (so that other instances are not affected) or to run in a separate [`Zone`](https://api.dart.dev/stable/3.5.0/dart-async/Zone-class.html), which allows you to override the functionality of the existing [`Zone`](https://api.dart.dev/stable/3.5.0/dart-async/Zone-class.html), then use the `runWithClient` function (see the `runWithClient` tab). Otherwise, just use `SentryHttpClient` directly and call its methods (see the `default` tab).
+
+### Usage
+
+```dart {filename:http_client.dart}{tabTitle: default} {mdExpandTabs}
+import 'package:sentry/sentry.dart';
+
+final client = SentryHttpClient();
+
+try {
+  final response = await client.get(Uri.https('www.example.com', ''));
+  print(response.body);
+} finally {
+  client.close();
+}
+```
+
+```dart {filename:http_client.dart}{tabTitle: runWithClient}
+import 'package:http/http.dart';
+import 'package:sentry/sentry.dart';
+
+final sentryHttpClient = SentryHttpClient();
+
+await runWithClient(() async {
+  final response = await get(Uri.https('www.example.com', ''));
+  print(response.body);
+}, () => sentryHttpClient);
+```
+
+## Reporting Bad HTTP Requests as Errors
+
+The `SentryHttpClient` can also catch exceptions that may occur during requests — for example [`SocketException`](https://api.dart.dev/stable/2.13.4/dart-io/SocketException-class.html).
+
+```dart
+import 'package:sentry/sentry.dart';
+
+var client = SentryHttpClient();
+try {
+  var uriResponse = await client.post('https://example.com/whatsit/create',
+    body: {'name': 'doodle', 'color': 'blue'});
+  print(await client.get(uriResponse.bodyFields['uri']));
+} finally {
+  client.close();
+}
+```
+
+When an error occurs, the following information is captured and sent to Sentry:
+
+The marked elements (\*) are affected by the default enabled [server-side data scrubbing](/security-legal-pii/scrubbing/server-side-scrubbing/).
+To implement client side data scrubbing, go to [client-side data scrubbing in Flutter](/platforms/dart/guides/flutter/data-management/sensitive-data/).
+
+Request details:
+
+- Method
+- URL \*
+- Headers \*
+- Body \*
+- Content length
+- Duration
+
+Response details:
+
+- Headers \*
+- Content length
+- Status code
+
+This is an opt-out feature. The following example shows how to disable it:
+
+```dart
+import 'package:sentry/sentry.dart';
+
+Future<void> main() async {
+  await Sentry.init(
+    (options) {
+      options.dsn = '___PUBLIC_DSN___';
+      options.captureFailedRequests = false;
+    },
+    appRunner: initApp, // Init your App.
+  );
+}
+```
+
+Furthermore you can track HTTP requests that you consider bad. In the
+following example, exceptions are captured for each request
+with a status code within the range of 400 to 404, and also for 500.
+
+```dart
+import 'package:sentry/sentry.dart';
+
+var client = SentryHttpClient(
+  failedRequestStatusCodes: [
+    SentryStatusCode.range(400, 404),
+    SentryStatusCode(500),
+  ],
+);
+
+try {
+  var uriResponse = await client.post('https://example.com/whatsit/create',
+    body: {'name': 'doodle', 'color': 'blue'});
+  print(await client.get(uriResponse.bodyFields['uri']));
+} finally {
+  client.close();
+}
+```
+
+### Failed Request Status Codes
+
+You can customize which status codes should be considered failed requests by setting the `failedRequestStatusCodes` option when calling `SentryHttpClient()`.
+
+```dart
+import 'package:sentry/sentry.dart';
+
+var client = SentryHttpClient(
+  failedRequestStatusCodes: [
+    SentryStatusCode.range(400, 404), // Capture 400-404
+    SentryStatusCode(500),             // Capture 500
+  ],
+);
+
+try {
+  var uriResponse = await client.post('https://example.com/whatsit/create',
+    body: {'name': 'doodle', 'color': 'blue'});
+  print(await client.get(uriResponse.bodyFields['uri']));
+} finally {
+  client.close();
+}
+```
+
+**Default Behavior:**
+
+By default, `failedRequestStatusCodes` is set to `[SentryStatusCode.range(500, 599)]`, which captures server errors (status codes 500-599).
+
+### Failed Request Targets
+
+To control which URLs should have failed requests captured, use the `failedRequestTargets` option. This is useful when you only want to capture errors from specific APIs or domains.
+
+The SDK will only capture HTTP client errors if the request URL matches one of the provided targets. Targets can be:
+
+- Strings that appear anywhere in the URL
+- Regular expression patterns
+
+```dart
+import 'package:sentry/sentry.dart';
+
+// Capture failed requests only from specific domains
+var client = SentryHttpClient(
+  failedRequestTargets: [
+    'api.example.com',      // Matches any URL containing this string
+    'myapi.com',            // Another domain to track
+  ],
+);
+
+try {
+  var uriResponse = await client.post('https://api.example.com/whatsit/create',
+    body: {'name': 'doodle', 'color': 'blue'});
+  print(await client.get(uriResponse.bodyFields['uri']));
+} finally {
+  client.close();
+}
+```
+
+**Default Behavior:**
+
+By default, `failedRequestTargets` is set to `['.*']`, which matches all URLs. This means all failed requests are captured (subject to `failedRequestStatusCodes`).
+
+## Tracing for HTTP Requests
+
+<Alert>
+
+Capturing transactions requires that you first <PlatformLink to="/tracing/">set up tracing</PlatformLink> if you haven't already.
+
+</Alert>
+
+The `SentryHttpClient` starts a span off the active span for each HTTP request. In transaction mode, that's the transaction bound to the scope; in stream mode, it's the span started with `Sentry.startSpan()`.
+
+To use the Transaction Mode tab, set `options.traceLifecycle = SentryTraceLifecycle.static` during SDK initialization.
+
+```dart {tabTitle:Stream Mode (Default)} {mdExpandTabs}
+import 'package:sentry/sentry.dart';
+
+// Start a root span — a span is attached for each HTTP request
+await Sentry.startSpan('webrequest', (span) async {
+  var client = SentryHttpClient();
+  try {
+    var uriResponse = await client.post('https://example.com/whatsit/create',
+      body: {'name': 'doodle', 'color': 'blue'});
+    print(await client.get(uriResponse.bodyFields['uri']));
+  } finally {
+    client.close();
+  }
+}, parentSpan: null);
+```
+
+```dart {tabTitle:Transaction Mode}
+import 'package:sentry/sentry.dart';
+
+final transaction = Sentry.startTransaction(
+  'webrequest',
+  'request',
+  bindToScope: true,
+);
+
+var client = SentryHttpClient();
+try {
+  var uriResponse = await client.post('https://example.com/whatsit/create',
+    body: {'name': 'doodle', 'color': 'blue'});
+  print(await client.get(uriResponse.bodyFields['uri']));
+} finally {
+  client.close();
+}
+
+await transaction.finish(status: SpanStatus.ok());
+```
+
+## HTTP Error and Span Data
+
+Failed status responses use the stable exception type `SentryHttpClientError` with a message such as `HTTP Client Error with status code: 500`. The message has no `Exception:` prefix. Requests to the configured Sentry DSN host are excluded from failed-request capture.
+
+HTTP spans use `url.full` for the URL and `http.response.body.size` for the response body size. Use these keys in custom span processing and queries.
+
+On iOS and macOS, Dart-side `captureFailedRequests` does not enable capture by native network instrumentation. Set `captureNativeFailedRequests = true` separately if you need native failed-request events.

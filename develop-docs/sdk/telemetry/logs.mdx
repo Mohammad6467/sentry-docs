@@ -1,0 +1,790 @@
+---
+title: Logs
+description: Structured logging protocol with severity levels, trace context, and batched envelope delivery.
+spec_id: sdk/telemetry/logs
+spec_version: 4.0.0
+spec_status: stable
+spec_depends_on:
+  - id: sdk/foundations/transport/envelopes
+    version: ">=1.0.0"
+  - id: sdk/foundations/state-management/scopes/attributes
+    version: ">=1.0.0"
+spec_changelog:
+  - version: 4.0.0
+    date: 2026-11-05
+    summary: Require dedicated log collection opt-in unless explicitly enabling an integration whose primary purpose is sending logs
+  - version: 3.1.0
+    date: 2026-10-08
+    summary: Listed client report discard reasons for logs and clarified that the quantity is the number of discarded logs
+  - version: 3.0.0
+    date: 2026-09-28
+    summary: Removed the global logs enablement option; retained explicit opt-in for integrations
+  - version: 2.3.0
+    date: 2026-09-22
+    summary: Added sentry.is_localhost default attribute for localhost inbound filtering
+  - version: 2.2.0
+    date: 2026-06-22
+    summary: Promoted most spec sections from candidate to stable
+  - version: 2.1.0
+    date: 2026-05-06
+    summary: Clarified sendDefaultPii gating for user attributes — allowed when user manually sets data
+  - version: 2.0.0
+    date: 2026-04-09
+    summary: Default enableLogs to true, add auto-emitted logs opt-in requirements for integrations
+  - version: 1.17.0
+    date: 2026-03-05
+    summary: Added `ingest_settings` and `version` to log envelope item
+  - version: 1.16.0
+    date: 2026-03-04
+    summary: Add sentry.timestamp.sequence attribute for deterministic log ordering
+  - version: 1.15.0
+    date: 2026-02-03
+    summary: Clarified 100 logs per envelope hard limit, SDKs MAY use lower buffer limit
+  - version: 1.14.0
+    date: 2025-12-16
+    summary: User attributes now optional, guarded by sendDefaultPii
+  - version: 1.13.0
+    date: 2025-11-18
+    summary: Added client reports requirement (log_item count, log_byte size)
+  - version: 1.12.0
+    date: 2025-11-10
+    summary: Added buffer hard limit of 1000 queued log events
+  - version: 1.11.0
+    date: 2025-10-30
+    summary: Added span_id as top-level payload field, replaced sentry.trace.parent_span_id attribute
+  - version: 1.10.0
+    date: 2025-10-22
+    summary: Hub/Scope MUST offer same logger methods as static API, Client SHOULD offer generic captureLog
+  - version: 1.9.0
+    date: 2025-10-09
+    summary: Consolidated sentry.origin rules — no origin for manual calls, auto.log.* for libraries, auto.*.* for instrumentation
+  - version: 1.8.0
+    date: 2025-09-10
+    summary: Added sentry.replay_id as default attribute and replay association behavior
+  - version: 1.7.0
+    date: 2025-08-28
+    summary: Added message template constraint — MUST NOT send sentry.message.template without parameters
+  - version: 1.6.0
+    date: 2025-06-10
+    summary: User attributes no longer gated behind sendDefaultPii
+  - version: 1.5.0
+    date: 2025-05-27
+    summary: Added platform-specific default attributes for browser, backend, mobile/desktop/native
+  - version: 1.4.0
+    date: 2025-05-08
+    summary: Added Tracing without Performance as prerequisite for logs
+  - version: 1.3.0
+    date: 2025-05-07
+    summary: Added structured log processing pipeline, removed logsSampleRate init option
+  - version: 1.2.0
+    date: 2025-05-01
+    summary: Refined buffering requirements (100 items or 5 seconds flush)
+  - version: 1.1.0
+    date: 2025-04-24
+    summary: Documented log envelope item structure (items array wrapper)
+  - version: 1.0.0
+    date: 2025-04-22
+    summary: Initial spec — log protocol, severity model, logger API, init options, otel_log format
+---
+
+<SpecRfcAlert />
+
+<SpecMeta />
+
+## Overview
+
+Logs allow Sentry to ingest structured log data from SDKs. SDKs send log envelopes containing structured log payloads with severity levels, trace context, and arbitrary attributes. Sentry uses this data to provide searchable, correlated log views alongside errors and traces.
+
+There are two wire protocols: the `log` envelope with the Sentry Log protocol (preferred), and the `otel_log` envelope with the OpenTelemetry Log protocol. All SDKs **MUST** send logs via the `log` envelope and Sentry Log protocol. The `otel_log` format is documented in [Appendix: `otel_log` Format](#otel_log-envelope-item-payload) for completeness.
+
+Related specs:
+- [Envelopes](/sdk/foundations/envelopes/) — transport format
+- [Attributes](/sdk/foundations/state-management/scopes/attributes/) — attribute type system
+- [Tracing without Performance](/sdk/foundations/trace-propagation/#default-propagation) — required for trace context
+- [Trace Origin](/sdk/telemetry/traces/trace-origin/) — origin attribute format
+
+---
+
+## Concepts
+
+### Structured Logging
+
+Logs support parameterized message templates for structured logging. Instead of interpolating values into the message body directly, SDKs send the template and parameters separately. This enables Sentry to group similar log messages and perform efficient searching.
+
+```
+Template:    "User %s has logged in!"
+Parameter 0: "John"
+Body:        "User John has logged in!"
+```
+
+The SDK sends the interpolated `body`, the `sentry.message.template`, and `sentry.message.parameter.X` attributes.
+
+### Severity Levels
+
+Logs use a severity model with six levels (lowest to highest): `trace`, `debug`, `info`, `warn`, `error`, `fatal`. These map exactly to [OpenTelemetry's Severity text field](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext).
+
+Each level maps to a numeric severity range following the [OpenTelemetry Severity Number](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber) specification:
+
+| SeverityNumber range | Range name | Meaning |
+| -------------------- | ---------- | ------- |
+| 1-4 | Trace | A fine-grained debugging event. Typically disabled in default configurations. |
+| 5-8 | Debug | A debugging event. |
+| 9-12 | Info | An informational event. Indicates that an event happened. |
+| 13-16 | Warn | A warning event. Not an error but is likely more important than an informational event. |
+| 17-20 | Error | An error event. Something went wrong. |
+| 21-24 | Fatal | A fatal error such as application or system crash. |
+
+SDKs **SHOULD** set the lowest severity number for a given severity level (e.g., `warn` uses severity number `13`).
+
+### Log Buffering
+
+Logs are buffered before sending. SDKs collect logs into a buffer and flush them as a batch in a single `log` envelope item, rather than sending each log individually. This reduces network overhead and aligns with Relay, which is optimized for up to 100 logs per envelope.
+
+---
+
+## Behavior
+
+<SpecSection id="log-processing-pipeline" status="stable" since="3.0.0">
+
+### Log Processing Pipeline
+
+Log processing **MUST** follow this order:
+
+1. Capture log via [Public APIs](#logger-module) (e.g. `Sentry.logger.info`) or via [SDK integrations](#sdk-integrations).
+2. Pass the log to Hub/Scope via a generic method (e.g., `captureLog`).
+3. Pass the log to the Client via a generic method (e.g., `captureLog`).
+4. Process captured log (attach attributes per [Default Attributes](#default-attributes)).
+5. Run `beforeSendLog`/`before_send_log` to filter or modify the log.
+6. Add log to buffer/batch processor per [Buffering](#buffering).
+7. At flush time, send array of logs to Sentry via `log` envelope, applying rate limiting per [Data Category and Rate Limiting](#data-category-and-rate-limiting).
+
+<Alert title="Note" level="warning">
+
+An SDK **SHOULD** implement [Tracing without Performance](/sdk/foundations/trace-propagation/#default-propagation) before adding support for logs. This is required to ensure logs are associated with traces and that the correct trace context is sent to Sentry.
+
+</Alert>
+
+</SpecSection>
+
+<SpecSection id="default-attributes" status="stable" since="1.0.0">
+
+### Default Attributes
+
+SDKs **MUST** attach the following attributes to every log:
+
+| Attribute | Since | Description |
+|-----------|-------|-------------|
+| `sentry.environment` | 1.0.0 | The environment set in the SDK, if defined. |
+| `sentry.release` | 1.0.0 | The release set in the SDK, if defined. |
+| `sentry.sdk.name` | 1.0.0 | The name of the SDK that sent the log. |
+| `sentry.sdk.version` | 1.0.0 | The version of the SDK that sent the log. |
+| `sentry.replay_id` | 1.8.0 | The replay ID of the active replay when the log was collected. **MUST NOT** be set if no replay is active. |
+| `sentry.is_localhost` | 2.3.0 | Whether the SDK determined the application is running on localhost. Used to enable the localhost inbound filter. The definition of "localhost" is platform-specific. Follow [Relay's detection heuristics](https://github.com/getsentry/relay/blob/master/relay-filter/src/localhost.rs) if applicable |
+
+For parameterized logs, SDKs **MUST** also attach:
+
+| Attribute | Since | Description |
+|-----------|-------|-------------|
+| `sentry.message.template` | 1.0.0 | The parameterized template string. |
+| `sentry.message.parameter.X` | 1.0.0 | Parameters to the template. `X` is either the positional index (`0`, `1`, etc.) or the parameter name (`item_id`, `user_id`, etc.). |
+
+If there are no `sentry.message.parameter.X` attributes, SDKs **MUST NOT** attach `sentry.message.template` (since 1.7.0). This reduces duplicate content and simplifies PII processing.
+
+<Alert>
+
+SDKs **SHOULD** minimize default attributes. Logs are charged per byte size. New default attributes **SHOULD** only be added after significant user feedback and discussion with the SDK and ingest teams.
+
+</Alert>
+
+</SpecSection>
+
+<SpecSection id="sdk-integration-origin" status="stable" since="1.0.0">
+
+### SDK Integration Origin
+
+If a log is generated by an SDK integration, the SDK **SHOULD** set the `sentry.origin` attribute per the [Trace Origin](/sdk/telemetry/traces/trace-origin/) documentation.
+
+Since 1.9.0, logs follow these rules:
+
+1. **User calls Sentry's Logging API directly:** SDKs **MUST NOT** send `sentry.origin`. This intentionally deviates from the Trace Origin spec to minimize log size.
+2. **Captured from a logging library:** Use `auto.log.<name>` format (e.g., `"auto.log.serilog"`).
+3. **Auto-emitted from other instrumented systems:** Use `auto.<category>.<integration-name>` format (e.g., `"auto.db.prisma"`).
+
+</SpecSection>
+
+<SpecSection id="user-attributes" status="stable" since="1.5.0">
+
+### User Attributes
+
+SDKs **MAY** attach user information as attributes, guarded by `sendDefaultPii` ([unless manually set by user](/sdk/foundations/client/data-collection/#user-set-data-scrubbing), since 2.1.0):
+
+| Attribute | Description |
+|-----------|-------------|
+| `user.id` | The user ID. Maps to `id` in the [User](/sdk/foundations/transport/event-payloads/user/) payload. |
+| `user.name` | The username. Maps to `username` in the [User](/sdk/foundations/transport/event-payloads/user/) payload. |
+| `user.email` | The email address. Maps to `email` in the [User](/sdk/foundations/transport/event-payloads/user/) payload. |
+
+</SpecSection>
+
+<SpecSection id="user-agent-parsing" status="stable" since="1.5.0">
+
+### User Agent Parsing
+
+By default, Relay parses the user agent attached to an incoming log envelope to extract `browser` and `os` information. SDKs **MAY** attach these attributes if they do not forward a user agent:
+
+| Attribute | Description |
+|-----------|-------------|
+| `browser.name` | Display name of the browser. Maps to `name` in [Browser Context](/sdk/foundations/transport/event-payloads/contexts/#browser-context). |
+| `browser.version` | Version string of the browser. Maps to `version` in [Browser Context](/sdk/foundations/transport/event-payloads/contexts/#browser-context). |
+
+</SpecSection>
+
+<SpecSection id="backend-attributes" status="stable" since="1.0.0">
+
+### Backend SDK Attributes
+
+Backend SDKs (Node.js, Python, PHP, etc.) **SHOULD** attach:
+
+| Attribute | Description |
+|-----------|-------------|
+| `server.address` | The server address. Equivalent to [`server_name`](/sdk/foundations/envelopes/event-payloads/#optional-attributes) on errors and transactions. |
+
+</SpecSection>
+
+<SpecSection id="mobile-native-attributes" status="stable" since="1.5.0">
+
+### Mobile, Desktop, and Native SDK Attributes
+
+Mobile, desktop, and native SDKs (Android, Apple, Electron, etc.) **SHOULD** attach:
+
+| Attribute | Description |
+|-----------|-------------|
+| `os.name` | OS name. Maps to `name` in [OS Context](/sdk/foundations/transport/event-payloads/contexts/#os-context). |
+| `os.version` | OS version. Maps to `version` in [OS Context](/sdk/foundations/transport/event-payloads/contexts/#os-context). |
+| `device.brand` | Device brand. Maps to `brand` in [Device Context](/sdk/foundations/transport/event-payloads/contexts/#device-context). |
+| `device.model` | Device model. Maps to `model` in [Device Context](/sdk/foundations/transport/event-payloads/contexts/#device-context). |
+| `device.family` | Device family. Maps to `family` in [Device Context](/sdk/foundations/transport/event-payloads/contexts/#device-context). |
+
+</SpecSection>
+
+<SpecSection id="buffering" status="stable" since="1.0.0">
+
+### Buffering
+
+SDKs **MUST** buffer logs before sending. A simple initial strategy is flushing when the buffer exceeds 100 items or 5 seconds have passed. The buffer **SHOULD** forward logs to the transport in the scenarios outlined in the [telemetry buffer data forwarding scenarios](/sdk/foundations/processing/telemetry-processor/#data-forwarding-scenarios).
+
+SDKs **MUST NOT** send more than 100 logs per envelope (since 1.15.0). Relay is optimized for this limit.
+
+SDKs **MUST** enforce a hard limit of 1000 queued log events to prevent out-of-memory issues (since 1.12.0). Logs added beyond this limit are dropped. SDKs **MAY** use a lower limit but **MUST NOT** exceed 1000.
+
+SDKs **MUST NOT** release logging capabilities to users without a buffering implementation.
+
+</SpecSection>
+
+<SpecSection id="data-category-rate-limiting" status="stable" since="1.0.0">
+
+### Data Category and Rate Limiting
+
+Logs use the `log_item` data category for rate limiting in Relay. Both `log` and `otel_log` envelopes are covered by this data category. SDKs **MUST** implement this data category. Rate limiting applies as usual with no special behavior for logs.
+
+SDKs **MUST** track client outcomes for this data category to report how often logs are dropped.
+
+</SpecSection>
+
+<SpecSection id="sdk-integrations" status="stable" since="3.0.0">
+
+### SDK Integrations
+
+SDKs **SHOULD** provide integrations that capture logs from platform logging libraries (e.g., JavaScript's `console`, Python's `logging`, Java's `Log4j`).
+
+SDKs **MAY** provide options to gate integration-specific functionality (e.g., controlling log appenders added via external config).
+
+</SpecSection>
+
+<SpecSection id="auto-emitted-logs" status="candidate" since="4.0.0">
+
+### Auto-Emitted Logs
+
+SDK integrations **MUST NOT** send logs unless the user has explicitly and knowingly opted into log collection from that integration via a dedicated configuration option.
+
+However, SDKs **MAY** consider explicitly enabling an integration, whose primary purpose is sending logs, to be sufficient opt-in for collecting logs from that integration.
+
+<Alert title="Rationale" level="info">
+
+We require explicit opt-in to prevent unexpected costs from automatically captured log volume.
+
+</Alert>
+
+</SpecSection>
+
+<SpecSection id="tracing-association" status="stable" since="1.0.0">
+
+### Tracing Association
+
+Logs **SHOULD** be associated with traces. If a log is recorded during an active span, SDKs **SHOULD** set the `span_id` property to the active span's ID.
+
+</SpecSection>
+
+<SpecSection id="replay-association" status="stable" since="1.8.0">
+
+### Replay Association
+
+Logs **SHOULD** be associated with replays. If a log is recorded during an active replay, SDKs **SHOULD** set the `sentry.replay_id` attribute to the active replay's ID.
+
+</SpecSection>
+
+### Log Ordering
+
+<SpecSection id="log-ordering" status="candidate" since="1.16.0">
+
+Some runtimes (notably Cloudflare Workers) freeze timer APIs (`Date.now()`, `performance.now()`) during synchronous execution, causing multiple logs to share identical timestamps. SDKs that target runtimes where timestamps may be frozen or lack sub-millisecond precision **MUST** attach a `sentry.timestamp.sequence` integer attribute to every log. SDKs that only target runtimes with reliable sub-millisecond timestamps **MAY** omit it.
+
+When sent, the sequence integer **MUST**:
+- Start at `0` when the SDK initializes.
+- Increment by `1` for each log that is captured.
+- Reset to `0` when:
+  - The SDK is re-initialized.
+  - The current log's integer millisecond differs from the previous log's integer millisecond (i.e., `floor(timestamp_seconds * 1000)` changes).
+
+The sequence provides deterministic ordering within a single SDK instance. It does not guarantee ordering across independent processes or workers, which have separate counters. The reset behavior ensures the sequence only increments for consecutive logs that share the same timestamp.
+
+</SpecSection>
+
+### Debug Mode
+
+<SpecSection id="debug-mode" status="stable" since="1.0.0">
+
+### Debug Mode
+
+If `debug` is set to `true` in SDK init, calls to the Sentry logger API **SHOULD** also print to the console with the appropriate log level. This aids debugging of logging setups.
+
+</SpecSection>
+
+<SpecSection id="client-reports" status="stable" since="1.13.0">
+
+### Client Reports
+
+SDKs **MUST** report count (`log_item`) and size in bytes (`log_byte`) of discarded log messages. An approximation of log size is sufficient (e.g., by counting as if serialized).
+
+SDKs **MUST** record a [client report](/sdk/telemetry/client-reports/) in at least the following cases:
+
+- `before_send`: `beforeSendLog`/`before_send_log` returned `null`.
+- `buffer_overflow`: the log was dropped because the buffer reached its [hard limit](#buffering).
+- `ratelimit_backoff`: the log was dropped because the `log_item` data category is [rate limited](#data-category-and-rate-limiting).
+- `send_error`, `internal_sdk_error`, `network_error`: the envelope containing the log was discarded because sending it failed, as specified in [Network Failure Recording](/sdk/telemetry/client-reports/#network-failure-recording).
+
+The `log_item` quantity **MUST** be the number of discarded logs, not the number of discarded envelopes or envelope items. For example, if a `log` envelope with 100 logs fails to send, the SDK records a `log_item` quantity of 100 (see [Quantity of Discarded Envelopes](/sdk/telemetry/client-reports/#quantity-of-discarded-envelopes)).
+
+</SpecSection>
+
+---
+
+## Wire Format
+
+<SpecSection id="log-envelope-item" status="stable" since="1.1.0">
+
+### `log` Envelope Item
+
+The `log` envelope item payload is a JSON object that **MUST** include an `items` array of log entries, allowing multiple logs per envelope item. The payload **MAY** also include top-level `version` and `ingest_settings` fields as specified in the next section.
+
+An envelope **MUST** contain at most one `log` envelope item — all log entries for a flush are batched into a single item's `items` array. Logs from different traces **MAY** be mixed into the same `log` item, but if they are, the envelope **MUST NOT** include a DSC (dynamic sampling context) header.
+
+**Item Headers:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | String | **REQUIRED** | **MUST** be `"log"`. |
+| `item_count` | Integer | **REQUIRED** | The number of log entries in the `items` array. **MUST** match the actual count. |
+| `content_type` | String | **REQUIRED** | **MUST** be `"application/vnd.sentry.items.log+json"`. |
+
+```json
+{
+  "type": "log",
+  "item_count": 5,
+  "content_type": "application/vnd.sentry.items.log+json"
+}
+{
+  "version": 2,
+  "ingest_settings": {
+    "infer_ip": "auto",
+    "infer_user_agent": "auto"
+  },
+  "items": [{..log..}, {..log..}, {..log..}, {..log..}, {..log..}]
+}
+```
+
+</SpecSection>
+
+<SpecSection id="log-envelope-item-ingest-settings" status="candidate" since="1.17.0">
+
+### `version` and `ingest_settings` properties
+
+The `log` envelope item **SHOULD** include `version` and `ingest_settings` properties to instruct Relay to infer IP address and user agent from the incoming request. See the [Ingest Settings](/sdk/foundations/envelopes/envelope-items/#ingest-settings) spec for the full definition, field reference, and behavior.
+
+</SpecSection>
+
+<SpecSection id="log-payload" status="stable" since="1.0.0">
+
+### `log` Envelope Item Payload
+
+Each log in the `items` array is a JSON object:
+
+```json
+{
+  "timestamp": 1544719860.0,
+  "trace_id": "5b8efff798038103d269b633813fc60c",
+  "span_id": "b0e6f15b45c36b12",
+  "level": "info",
+  "body": "User John has logged in!",
+  "severity_number": 9,
+  "attributes": {
+    "sentry.message.template": {
+      "value": "User %s has logged in!",
+      "type": "string"
+    },
+    "sentry.message.parameter.0": {
+      "value": "John",
+      "type": "string"
+    }
+  }
+}
+```
+
+| Field | Type | Required | Since | Description |
+|-------|------|----------|-------|-------------|
+| `timestamp` | Number | **REQUIRED** | 1.0.0 | Timestamp of the log in seconds since the Unix epoch. |
+| `trace_id` | String | **REQUIRED** | 1.0.0 | Trace ID as 16 random bytes encoded as a hex string (32 characters). **MUST** be grabbed from the current propagation context. |
+| `level` | String | **REQUIRED** | 1.0.0 | Severity level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `body` | String | **REQUIRED** | 1.0.0 | The log body/message. |
+| `span_id` | String | **OPTIONAL** | 1.11.0 | Span ID of the active span when the log was collected, as 8 random bytes encoded as a hex string (16 characters). |
+| `severity_number` | Integer | **OPTIONAL** | 1.0.0 | Severity number per [Severity Levels](#severity-levels). Inferred from `level` unless explicitly set. |
+| `attributes` | Object | **OPTIONAL** | 1.0.0 | Key-value pairs of arbitrary data. Values **MUST** declare their type. See [Attributes](/sdk/foundations/state-management/scopes/attributes/). |
+
+</SpecSection>
+
+<SpecSection id="otel-log-format" status="stable" since="1.0.0">
+
+### `otel_log` Envelope Item Payload
+
+<Expandable title="Click to expand/collapse details about the `otel_log` envelope item payload.">
+
+The `otel_log` envelope item payload is a JSON object implementing the [OpenTelemetry Log Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/). Multiple `otel_log` items **MAY** be sent per envelope.
+
+```json
+{
+  "severity_text": "info",
+  "body": {
+    "string_value": "User John has logged in!"
+  },
+  "attributes": [
+    {
+      "key": "sentry.message.template",
+      "value": { "string_value": "User %s has logged in!" }
+    },
+    {
+      "key": "sentry.message.parameters.0",
+      "value": { "string_value": "John" }
+    }
+  ],
+  "time_unix_nano": "1741191250694000000",
+  "trace_id": "edec519707974fc8bfccb5a017e17394",
+  "severity_number": 9
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `severity_text` | String | **REQUIRED** | Severity level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `body` | Object | **REQUIRED** | The log body. Contains `string_value` with the message text. |
+| `trace_id` | String | **OPTIONAL** | Trace ID for linking logs to traces and errors. Heavily recommended. |
+| `severity_number` | Integer | **OPTIONAL** | Severity number per [Severity Levels](#severity-levels). |
+| `attributes` | Array\<Object\> | **OPTIONAL** | Key-value pairs. Each entry has `key` (string) and `value` (object with typed value). Supported value fields: `stringValue`, `intValue` (string-encoded), `boolValue`, `doubleValue`. |
+| `time_unix_nano` | String | **OPTIONAL** | Creation time in Unix nanoseconds. SDKs **SHOULD** set this to the current time if not provided. |
+
+</Expandable>
+
+</SpecSection>
+
+---
+
+## Public API
+
+<SpecSection id="initialization-options" status="stable" since="3.0.0">
+
+### Initialization Options
+
+SDKs **MUST** expose the following configuration option:
+
+| Option | Type | Default | Since | Description |
+|--------|------|---------|-------|-------------|
+| `beforeSendLog` / `before_send_log` | Function | — | 1.0.0 | **OPTIONAL** callback receiving a log object. Returns a modified log or `null` to drop it. |
+
+SDKs **SHOULD NOT** provide an API whose sole purpose is to disable all logs.
+
+</SpecSection>
+
+<SpecSection id="logger-api" status="stable" since="1.0.0">
+
+### Logger Module
+
+SDKs **MUST** expose logging methods in a `logger` module or namespace, with one method per [severity level](#severity-levels):
+
+- `Sentry.logger.trace`
+- `Sentry.logger.debug`
+- `Sentry.logger.info`
+- `Sentry.logger.warn`
+- `Sentry.logger.error`
+- `Sentry.logger.fatal`
+
+These methods accept a string template and parameters for structured logging. They **MAY** also accept arbitrary attributes.
+
+The Hub/Scope and Client **MUST** exclusively provide a generic logging method (e.g., `captureLog`). They **MUST NOT** replicate the static `Sentry.logger.X` API methods to avoid increasing our API surface. Users utilizing multiple Hub/Scope or Clients will need to rely on the generic method for logging.
+
+</SpecSection>
+
+<SpecSection id="threading-concurrency" status="stable" since="1.0.0">
+
+### Threading and Concurrency
+
+The `Sentry.logger.X` methods are fire-and-forget (no return value). SDKs **MAY** run these methods on a separate thread or queue them for later processing, including evaluating the string template and running internal hooks like `beforeSendLog`.
+
+SDKs **MUST** ensure logs are sent in the order they are received.
+
+<Alert title="Note" level="warning">
+
+Putting everything on a background thread risks losing logs that occur directly before a crash. Mobile SDKs will need a more robust mechanism. The individual SDK will need to determine the best approach for their platform.
+
+</Alert>
+
+</SpecSection>
+
+---
+
+## Examples
+
+### SDK API Usage
+
+<Alert>
+
+These examples are illustrative, not normative. SDK authors **SHOULD** ensure the API best fits their platform.
+
+</Alert>
+
+```jsx
+// Browser - tagged template literals
+Sentry.logger.info(Sentry.logger.fmt`Adding item ${itemId} for user ${userId}`);
+
+// Server-side - printf-like syntax
+Sentry.logger.info("Adding item %s for user %s", [itemId, userId], {
+  extra: 123,
+});
+```
+
+```python
+Sentry.logger.info('Adding item {item} for user {user}', item=item_id, user=user_id, attributes={ 'extra': 123 });
+```
+
+```php
+use function Sentry\logger;
+
+logger()->info('Adding item %s for user %s', [$item_id, $user_id], ['extra' => 123]);
+```
+
+```java
+Sentry.logger().info("Adding item %s for user %s", itemId, userId);
+```
+
+```swift
+SentrySDK.logger
+  .info(message: "Adding item %s for user %s",
+    params: [itemId, userId],
+    attributes: ["extra": @"123"]
+  )
+```
+
+### Full `log` Envelope
+
+A complete `log` envelope with six log entries at different severity levels:
+
+```json
+{ "sdk": { "name": "sentry.javascript.browser", "version": "9.15.0" } }
+{
+  "type": "log",
+  "item_count": 6,
+  "content_type": "application/vnd.sentry.items.log+json"
+}
+{
+  "items": [
+    {
+      "timestamp": 1746456149.0191,
+      "level": "trace",
+      "body": "Modal animation performance: openTime=120ms, closeTime=85ms, fps=60",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 1,
+      "attributes": {
+        "modalId": { "value": "product_details", "type": "string" },
+        "animationType": { "value": "slide-up", "type": "string" },
+        "devicePixelRatio": { "value": 2, "type": "integer" },
+        "browser": { "value": "Chrome", "type": "string" },
+        "memoryUsage": { "value": "45MB", "type": "string" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "Modal animation performance: openTime=%sms, closeTime=%sms, fps=%s",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": { "value": 120, "type": "integer" },
+        "sentry.message.parameter.1": { "value": 85, "type": "integer" },
+        "sentry.message.parameter.2": { "value": 60, "type": "integer" },
+        "sentry.timestamp.sequence": { "value": 0, "type": "integer" }
+      }
+    },
+    {
+      "timestamp": 1746456149.0191998,
+      "level": "debug",
+      "body": "Component ProductCard rendered 3 times",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 5,
+      "attributes": {
+        "props": { "value": "{\"productId\":\"prod_123\"}", "type": "string" },
+        "renderTime": { "value": 45, "type": "integer" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "Component %s rendered %s times",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": {
+          "value": "ProductCard",
+          "type": "string"
+        },
+        "sentry.message.parameter.1": { "value": 3, "type": "integer" },
+        "sentry.timestamp.sequence": { "value": 1, "type": "integer" }
+      }
+    },
+    {
+      "timestamp": 1746456149.0191998,
+      "level": "info",
+      "body": "Form checkout_form submitted successfully with 8 fields",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 9,
+      "attributes": {
+        "step": { "value": "payment_details", "type": "string" },
+        "timeSpent": { "value": 120, "type": "integer" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "Form %s submitted successfully with %s fields",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": {
+          "value": "checkout_form",
+          "type": "string"
+        },
+        "sentry.message.parameter.1": { "value": 8, "type": "integer" },
+        "sentry.timestamp.sequence": { "value": 2, "type": "integer" }
+      }
+    },
+    {
+      "timestamp": 1746456149.0192997,
+      "level": "warn",
+      "body": "API endpoint /api/products response time 2500ms exceeds threshold of 1000ms",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 13,
+      "attributes": {
+        "userAgent": { "value": "Mozilla/5.0...", "type": "string" },
+        "connectionType": { "value": "4g", "type": "string" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "API endpoint %s response time %sms exceeds threshold of %sms",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": {
+          "value": "/api/products",
+          "type": "string"
+        },
+        "sentry.message.parameter.1": { "value": 2500, "type": "integer" },
+        "sentry.message.parameter.2": { "value": 1000, "type": "integer" },
+        "sentry.timestamp.sequence": { "value": 3, "type": "integer" }
+      }
+    },
+    {
+      "timestamp": 1746456149.0192997,
+      "level": "error",
+      "body": "Failed to load images for products prod_123, prod_456",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 17,
+      "attributes": {
+        "error": { "value": "NetworkError", "type": "string" },
+        "statusCode": { "value": 404, "type": "integer" },
+        "retryAttempts": { "value": 2, "type": "integer" },
+        "browser": { "value": "Chrome", "type": "string" },
+        "version": { "value": "120.0", "type": "string" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "Failed to load images for products %s",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": {
+          "value": "prod_123, prod_456",
+          "type": "string"
+        },
+        "sentry.timestamp.sequence": { "value": 4, "type": "integer" }
+      }
+    },
+    {
+      "timestamp": 1746456149.0192997,
+      "level": "fatal",
+      "body": "State corruption detected in ShoppingCart component during UPDATE_CART action",
+      "trace_id": "624f66e93a04469f9992c7e9f1485056",
+      "severity_number": 21,
+      "attributes": {
+        "error": { "value": "ReduxStateError", "type": "string" },
+        "previousState": { "value": "valid", "type": "string" },
+        "currentState": { "value": "invalid", "type": "string" },
+        "sentry.sdk.name": {
+          "value": "sentry.javascript.browser",
+          "type": "string"
+        },
+        "sentry.sdk.version": { "value": "9.15.0", "type": "string" },
+        "sentry.message.template": {
+          "value": "State corruption detected in %s component during %s action",
+          "type": "string"
+        },
+        "sentry.message.parameter.0": {
+          "value": "ShoppingCart",
+          "type": "string"
+        },
+        "sentry.message.parameter.1": {
+          "value": "UPDATE_CART",
+          "type": "string"
+        },
+        "sentry.timestamp.sequence": { "value": 5, "type": "integer" }
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Changelog
+
+<SpecChangelog />

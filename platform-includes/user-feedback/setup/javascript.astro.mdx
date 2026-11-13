@@ -1,0 +1,14 @@
+```javascript {filename:sentry.client.config.js}
+import * as Sentry from "@sentry/astro";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  integrations: [
+    Sentry.feedbackIntegration({
+      // Additional SDK configuration goes in here, for example:
+      colorScheme: "system",
+    }),
+  ],
+});
+```

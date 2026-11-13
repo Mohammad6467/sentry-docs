@@ -1,0 +1,21 @@
+```php {filename:config/sentry.php}
+'traces_sampler' => [App\Exceptions\Sentry::class, 'tracesSampler'],
+```
+
+Then implement the sampler:
+
+```php {filename:app/Exceptions/Sentry.php}
+class Sentry
+{
+    public static function tracesSampler(\Sentry\Tracing\SamplingContext $context): float
+    {
+        // Always inherit the parent sampling decision.
+        if ($context->getParentSampled()) {
+            return 1.0;
+        }
+
+        // The rest of your sampling logic.
+        return 0.25;
+    }
+}
+```

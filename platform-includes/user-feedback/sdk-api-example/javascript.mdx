@@ -1,0 +1,46 @@
+```javascript {tabTitle: JavaScript}
+// All feedback fields are optional, except `message`.
+const userFeedback = {
+  name: "John Doe",
+  email: "john@doe.com",
+  message: "I really like your App, thanks!",
+};
+Sentry.captureFeedback(userFeedback);
+```
+
+```javascript {tabTitle: JavaScript with eventId}
+const eventId = Sentry.captureException(new Error("Something went wrong!"));
+// OR: const eventId = Sentry.lastEventId();
+
+// All feedback fields are optional, except `message`.
+const userFeedback = {
+  name: "John Doe",
+  email: "john@doe.com",
+  message: "I really like your App, thanks!",
+  associatedEventId: eventId,
+};
+Sentry.captureFeedback(userFeedback);
+```
+
+You can also attach further data to the feedback event by passing a hint as a second argument. This is similar to other `capture` methods:
+
+```javascript
+const base64ScreenShot = 'data:image/jpeg;base64...';
+const res = await fetch(base64ScreenShot);
+const buffer = await res.arrayBuffer();
+
+Sentry.captureFeedback(
+  { message: "I really like your App, thanks!" },
+  {
+    captureContext: {
+      tags: { key: "value" },
+    },
+    attachments: [
+      {
+        filename: "screenshot.png",
+        data: new Uint8Array(buffer),
+      },
+    ],
+  }
+);
+```

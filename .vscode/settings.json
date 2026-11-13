@@ -7,7 +7,16 @@
 
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+    "source.fixAll.eslint": "explicit"
   },
-  "git.ignoreLimitWarning": true
+  "git.ignoreLimitWarning": true,
+  "search.exclude": {
+    "**/src/wizard/**": true
+  },
+  "cSpell.words": [
+    "fixability",
+    "laravel",
+    "subprocessor",
+    "subprocessors"
+  ]
 }

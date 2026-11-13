@@ -1,6 +1,0 @@
-title: Spring Boot
-caseStyle: canonical
-supportLevel: production
-sdk: sentry.java.springboot
-redirect_from:
-  - /platforms/java/guides/springboot/config/

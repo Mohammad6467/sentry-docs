@@ -1,0 +1,104 @@
+---
+title: Troubleshooting Docker
+sidebar_title: Docker
+sidebar_order: 3
+---
+
+## `FAIL: Docker Compose is required to run self-hosted` error but Docker Compose is installed
+
+Around version 25.1.0 to 25.4.0, users which did not have `docker compose` plugin installed, and relied only on `docker-compose` will face some issues. Notably for Amazon Linux 2023 distro that does not have `docker-compose-plugin` packaged, you may need to install the standalone `docker-compose` separately. See [docker/compose installation guide](https://github.com/docker/compose?tab=readme-ov-file#linux) for more details.
+
+## Container Healthcheck
+
+There may be some circumstances where you want to increase or decrease the healthcheck interval, timeout, or retries for your custom needs. You can do this by overriding the `HEALTHCHECK_INTERVAL`, `HEALTHCHECK_TIMEOUT`, and `HEALTHCHECK_RETRIES` values from `.env` in a separate `.env.custom` file and running Docker Compose with both files (for example, `docker compose --env-file .env --env-file .env.custom up`).
+
+Occasionally, you might see an error like this
+```
+container for service "${servicename}" is unhealthy
+```
+
+This can usually be resolved by running `docker compose down` and `docker compose up --wait` or rerunning the install script.
+
+<Alert title="Note"> 
+  On slower systems, including systems that only meet the minimum resource requirements for self-hosted Sentry, this issue may still persist even after rerunning `docker compose down` and `docker compose up --wait`.
+
+  In this case, you can override the healthcheck parameters defined in `.env` by setting custom values in `.env.custom`.
+
+  For example, increasing `HEALTHCHECK_RETRIES` may resolve the issue:
+
+```shell
+# .env.custom
+HEALTHCHECK_RETRIES=20
+```
+
+  Then start Docker Compose.
+
+  Depending on your system, you may also need to adjust other `HEALTHCHECK_*` values.
+</Alert>
+
+## Docker Network Conflicting IP Address
+
+Self-hosted Sentry is using Docker's bridge networking, in which use a specific private IP range. By default, Docker uses `172.17.0.0/16` range (`172.17.0.0`-`172.17.255.255`). This may cause conflict with your private network. You can change Docker's default IP range by configuring the `/etc/docker/daemon.json` file. If the file does not exists, you can create it yourself.
+
+Assuming your safe IP range is `10.147.0.0/16` and `10.146.0.0/16`, your configuration would be:
+
+```json
+{
+    "default-address-pools": [
+   {
+     "base": "10.147.0.0/16",
+     "size": 24
+   },
+   {
+     "base": "10.146.0.0/16",
+     "size": 24
+   }
+ ]
+}
+```
+
+To apply new Docker daemon configuration, restart your Docker service with `systemctl restart docker`.
+
+Make sure you are using [valid private IP ranges](https://en.wikipedia.org/wiki/Reserved_IP_addresses), that is between these ranges:
+- `10.0.0.0/8` (address range of `10.0.0.0`–`10.255.255.255`)
+- `100.64.0.0/10` (address range of `100.64.0.0`–`100.127.255.255`)
+- `172.16.0.0/12` (address range of `172.16.0.0`–`172.31.255.255`)
+- `192.0.0.0/24` (address range of `192.0.0.0`–`192.0.0.255`)
+- `192.168.0.0/16` (address range of `192.168.0.0`–`192.168.255.255`)
+- `198.18.0.0/15` (address range of `198.18.0.0`–`198.19.255.255`)
+
+For further reading, you can see Matthew Stratiotto's article on [The definitive guide to docker's default-address-pools option](https://straz.to/2021-09-08-docker-address-pools/).
+
+## Logs Disk Usage
+
+If you are suspecting persisted logs from Docker container logs consumes a lot of your disk space, you can configure the amount of persisted logs on Docker by configuring the `/etc/docker/daemon.json` file. If the file does not exists, you can create it yourself.
+
+```json
+{
+  "log-driver": "local",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+```
+
+To apply new Docker daemon configuration, restart your Docker service with `systemctl restart docker`.
+
+If you want to delete immediate Docker logs, you can execute this as `root` user:
+
+```shell
+truncate -s 0 /var/lib/docker/containers/**/*-json.log
+```
+
+## Image and Builder Cleanup
+
+Executing `./install.sh` will build a new Sentry Docker container, executing it often might cause Docker to consume your disk space. You can safely prune old or unneeded Docker containers, image, or builder to re-acquire used disk space. Executing these will not affect current running containers and volumes.
+
+```shell
+docker container prune
+docker builder prune
+docker image prune --all
+# WARNING: Executing "volume prune" might delete `sentry-vroom` volume as it's not an external volume.
+docker volume prune
+docker network prune
+```
+
+Append `-f` flag for no confirmation on deletions.

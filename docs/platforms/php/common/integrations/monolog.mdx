@@ -1,0 +1,77 @@
+---
+title: Monolog
+description: "Learn how to use Monolog with Sentry's PHP SDK."
+---
+
+When using [Monolog](https://github.com/Seldaek/monolog), you can configure handlers to capture Monolog messages in Sentry. The examples below show common patterns for sending structured logs and recording breadcrumbs:
+
+- **Logs Handler** - Send structured logs to Sentry
+- **Breadcrumb Handler** - Record messages as breadcrumbs attached to future events
+
+The breadcrumb handler does not send anything to Sentry directly. It records breadcrumbs that are attached to a later event or exception.
+
+## Logs
+
+<Alert level="info">Available in SDK version 4.12.0 and above.</Alert>
+
+To send structured logs to Sentry, use the `\Sentry\Monolog\LogsHandler`.
+
+```php
+<?php
+
+use Monolog\Logger;
+use Sentry\Logs\LogLevel;
+
+\Sentry\init([
+    'dsn' => '___PUBLIC_DSN___',
+]);
+
+// Create a Monolog channel with a logs handler
+$logger = new Logger('sentry_logs');
+$logger->pushHandler(new \Sentry\Monolog\LogsHandler(
+    LogLevel::info(), // Minimum level to send logs
+));
+
+// Send logs to Sentry
+$logger->info('User logged in', [
+    'user_id' => 12345,
+    'email' => 'user@example.com',
+    'login_method' => 'password',
+]);
+
+$logger->warning('API rate limit approaching', [
+    'endpoint' => '/api/users',
+    'requests_remaining' => 10,
+    'window_seconds' => 60,
+]);
+```
+
+The context array passed to Monolog methods becomes searchable attributes in the Sentry logs interface.
+
+## Breadcrumbs
+
+Use the breadcrumb handler when you want Monolog messages attached to future Sentry events for extra context.
+
+```php
+<?php
+
+use Monolog\Level;
+use Monolog\Logger;
+
+// Set up the Sentry SDK, this can also be done elsewhere in your application
+\Sentry\init([
+    'dsn' => '___PUBLIC_DSN___',
+]);
+
+// Create a Monolog channel with a breadcrumb handler
+$log = new Logger('sentry');
+$log->pushHandler(new \Sentry\Monolog\BreadcrumbHandler(
+    hub: \Sentry\SentrySdk::getCurrentHub(),
+    level: Level::Info, // Messages with this level or higher will be attached to future Sentry events as breadcrumbs
+));
+
+$log->info('Starting checkout flow');
+$log->warning('API rate limit approaching', [
+    'endpoint' => '/api/users',
+]);
+```

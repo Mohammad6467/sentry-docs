@@ -1,0 +1,25 @@
+---
+title: Issue Platform
+sidebar_order: 30
+---
+
+The Issue Platform allows developers to create new issue types from arbitrary data sources.
+If you have data about something that you want to track via an issue, you can build it on the issue platform.
+For example, building profiling issues on the issue platform allowed us to turn things like “JSON decoding on the main thread” into their own issue types.
+
+Learn more about the issue platform:
+
+- <Link to="/backend/issue-platform/issue-types/">Issue Types</Link>
+- <Link to="/backend/issue-platform/producing-occurrences/">Producing Issue Occurrences</Link>
+
+Writing a new detector? See <Link to="#writing-a-detector">Writing a Detector</Link> for tips on how to write one.
+
+## Writing a Detector
+
+Writing a detector is the hardest part of creating a new issue type. It can be from any data stream, as long as you can produce an <Link to="/backend/issue-platform/producing-occurrences/#issue-occurrence-schema">Occurrence</Link> representing the issue.
+
+There are currently two ways to write a detector:
+
+1. If your detector is a performance detector, meaning it is used to detect performance issues, refer to <Link to="/backend/issue-platform/writing-performance-detectors/">this guide</Link> for tips on how to write one.
+
+2. For all other detectors, refer to <Link to="/backend/issue-platform/writing-detectors/">this guide</Link> for tips on how to write one.

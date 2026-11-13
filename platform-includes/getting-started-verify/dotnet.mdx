@@ -1,0 +1,17 @@
+```csharp
+try
+{
+    throw null;
+}
+catch (Exception ex)
+{
+    SentrySdk.CaptureException(ex);
+}
+```
+
+```fsharp
+try
+    raise <| NullReferenceException ()
+with ex ->
+    SentrySdk.CaptureException(ex) |> ignore
+```

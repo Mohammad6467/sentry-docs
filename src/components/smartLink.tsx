@@ -1,50 +1,106 @@
-import React from "react";
-import { Link } from "gatsby";
+'use client';
 
-import ExternalLink from "./externalLink";
+import * as Sentry from '@sentry/nextjs';
+import Link from 'next/link';
+import {useCallback} from 'react';
+import {usePlausibleEvent} from 'sentry-docs/hooks/usePlausibleEvent';
+import {getInternalLinkClickProps} from 'sentry-docs/internalLinkTracking';
 
-type Props = {
-  to?: string;
-  href?: string;
-  remote?: boolean;
-  children?: React.ReactNode;
+import {ExternalLink} from './externalLink';
+
+interface Props {
   activeClassName?: string;
+  children?: React.ReactNode;
   className?: string;
+  href?: string;
+  isActive?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
+  remote?: boolean;
+  target?: string;
   title?: string;
-};
+  to?: string;
+}
 
-export default ({
+export function SmartLink({
   to,
   href,
   children,
-  activeClassName = "active",
+  activeClassName = 'active',
   remote = false,
-  className = "",
+  className = '',
+  isActive,
+  onClick,
   ...props
-}: Props): JSX.Element => {
-  const realTo = to || href || "";
-  if (realTo.indexOf("://") !== -1) {
+}: Props) {
+  const realTo = to || href || '';
+  const {emit} = usePlausibleEvent();
+
+  const handleAutolinkClick = useCallback(async (e: React.MouseEvent) => {
+    const link = e.currentTarget as HTMLAnchorElement;
+    if (link.classList.contains('autolink-heading')) {
+      try {
+        await navigator.clipboard.writeText(link.href);
+      } catch {
+        Sentry.logger.warn('clipboard.writeText permission denied', {
+          url: link.href,
+          userAgent: navigator.userAgent,
+        });
+      }
+    }
+  }, []);
+
+  if (remote || realTo?.indexOf('://') !== -1) {
     return (
-      <ExternalLink href={realTo} className={className} {...props}>
+      <ExternalLink href={realTo} className={className} onClick={onClick} {...props}>
         {children || to || href}
       </ExternalLink>
     );
-  } else if (realTo.indexOf("/") !== 0 || remote) {
-    // this handles cases like anchor tags (where Link messes thats up)
+  }
+
+  // Hash-only links: use a plain <a> so the browser fires hashchange.
+  // When the target is inside a closed <details>, prevent the browser's
+  // premature scroll and let the Expandable handler scroll after opening.
+  if (realTo.startsWith('#')) {
     return (
-      <a href={realTo} className={className} {...props}>
+      <a
+        href={realTo}
+        className={className}
+        onClick={e => {
+          handleAutolinkClick(e);
+          onClick?.(e);
+          const targetId = realTo.slice(1);
+          const target = targetId ? document.getElementById(targetId) : null;
+          if (target?.closest('details:not([open])')) {
+            e.preventDefault();
+            window.history.pushState(null, '', realTo);
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+          }
+        }}
+        {...props}
+      >
         {children || to || href}
       </a>
     );
   }
+
   return (
     <Link
-      to={realTo}
-      activeClassName={activeClassName}
-      className={className}
+      href={to || href || ''}
+      onClick={e => {
+        handleAutolinkClick(e);
+        const clickProps = getInternalLinkClickProps(
+          e.currentTarget.getAttribute('href') ?? realTo,
+          window.location.href
+        );
+        if (clickProps) {
+          emit('Internal Link Click', {props: clickProps});
+        }
+        onClick?.(e);
+      }}
+      className={`${isActive ? activeClassName : ''} ${className}`}
       {...props}
     >
       {children || to || href}
     </Link>
   );
-};
+}

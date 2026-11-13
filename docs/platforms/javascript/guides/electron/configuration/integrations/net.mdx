@@ -1,0 +1,70 @@
+---
+title: ElectronNet
+excerpt: ""
+description: "Captures breadcrumbs and tracing spans for Electrons `net` module. (default)"
+sidebar_order: 10
+---
+
+This integration captures breadcrumbs and tracing spans for Electron's `net` module. Breadcrumbs and tracing spans are enabled by default, while `sentry-trace` headers are added to requests for all origins.
+
+The integration can be configured with the following options:
+
+```typescript
+interface NetOptions {
+  /**
+   * Whether breadcrumbs should be captured for net requests
+   *
+   * Defaults to: true
+   */
+  breadcrumbs: boolean;
+  /**
+   * Whether to capture spans for net requests
+   *
+   * Defaults to: true
+   */
+  tracing: boolean | (method: string, url: string) => boolean;
+  /**
+   * Whether to also capture Sentry logs for net requests
+   *
+   * Defaults to: false
+   */
+  logs: boolean;
+}
+```
+
+Here's a code example of how to disable breadcrumb capture and add `sentry-trace` headers to only capture spans for `POST` requests:
+
+
+```javascript
+import * as Sentry from "@sentry/electron/main";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    Sentry.electronNetIntegration({
+      breadcrumbs: false,
+      tracing: (method) => method == "POST",
+    }),
+  ],
+});
+```
+
+## Spans
+
+The integration creates `http.client` spans with the same attributes as the spans that the Node.js and browser SDKs create for outgoing requests:
+
+| Attribute             | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `http.request.method` | The request method, for example `GET`           |
+| `url.full`            | The full request URL                            |
+| `url.path`            | The path of the URL                             |
+| `url.query`           | The query string of the URL, if there is one    |
+| `url.scheme`          | The scheme of the URL, for example `https`      |
+| `server.address`      | The host name of the server                     |
+| `server.port`         | The port of the server, if the URL includes one |
+
+In <PlatformLink to="/tracing/streamed-spans/">stream mode</PlatformLink>, which is the default, the span name is the request method and the host name, for example `GET example.com`. The integration also creates spans when there is no active parent span.
+
+In transaction mode (`traceLifecycle: 'static'`), the span name is the request method and the URL without the query string and the fragment. The integration only creates spans when there is an active parent span.
+
+Before version `8.0.0` of the Electron SDK, these spans used the `url`, `http.method`, and `type` attributes, and the span name included the query string.

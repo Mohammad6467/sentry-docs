@@ -1,0 +1,32 @@
+<OnboardingOption optionId="opentelemetry">
+
+The SDK can be configured using a `sentry.properties` file:
+
+```properties {filename:sentry.properties}
+dsn=___PUBLIC_DSN___
+# Use Data Collection defaults but don't collect automatic user information.
+# https://docs.sentry.io/platforms/java/data-management/data-collected/
+data-collection.user-info=false
+# Configure other data categories here.
+# ___PRODUCT_OPTION_START___ performance
+traces-sample-rate=1.0
+# ___PRODUCT_OPTION_END___ performance
+// ___PRODUCT_OPTION_START___ logs
+logs.enabled=true
+// ___PRODUCT_OPTION_END___ logs
+// ___PRODUCT_OPTION_START___ profiling
+
+# Enable profiling
+profile-session-sample-rate=1.0
+profile-lifecycle=TRACE
+// ___PRODUCT_OPTION_END___ profiling
+```
+
+<OnboardingOption optionId="logs">
+<Alert>
+
+Learn more about setting up logging in our <PlatformLink to="/logs/">Logs documentation</PlatformLink>.
+
+</Alert>
+</OnboardingOption>
+</OnboardingOption>

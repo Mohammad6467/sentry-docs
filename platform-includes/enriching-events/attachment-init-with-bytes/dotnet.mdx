@@ -1,0 +1,15 @@
+```csharp
+SentrySdk.ConfigureScope(scope =>
+{
+    // Add an in-memory attachment to the current scope
+    scope.AddAttachment(bytes, "file.log");
+});
+```
+
+```fsharp
+SentrySdk.ConfigureScope(
+  fun scope ->
+    // Add an in-memory attachment to the current scope
+    scope.AddAttachment(bytes, "file.log")
+)
+```

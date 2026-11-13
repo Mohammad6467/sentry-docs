@@ -1,0 +1,31 @@
+Stream mode is enabled by default in version 8 of the Electron SDK. On older versions, opt in by adding `spanStreamingIntegration()` to your list of integrations when initializing the SDK in your renderer:
+
+```javascript
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  tracesSampleRate: 1.0,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    // enables stream mode
+    Sentry.spanStreamingIntegration(),
+  ],
+});
+```
+
+Then set the `traceLifecycle` option to `'stream'` when initializing the SDK in your main process:
+
+```javascript
+import * as Sentry from "@sentry/electron/main";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  tracesSampleRate: 1.0,
+  // enables stream mode
+  traceLifecycle: "stream",
+  integrations: [Sentry.startupTracingIntegration()],
+});
+```
+
+To use transaction mode instead, set `traceLifecycle` to `'static'` in each process. Transaction mode exists for backwards compatibility and will be removed in a future major version.

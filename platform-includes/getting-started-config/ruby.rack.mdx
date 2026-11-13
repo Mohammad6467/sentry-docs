@@ -1,0 +1,74 @@
+#### With Rackup
+
+Import and initialize the SDK and add `use Sentry::Rack::CaptureExceptions` to your `config.ru` or other rackup file.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#traces_sample_rate">`traces_sample_rate`</PlatformLink>
+- Profiling: via <PlatformLink to="/configuration/options/#profiles_sample_rate">`profiles_sample_rate`</PlatformLink> (requires the `stackprof` gem from the Install step)
+- Breadcrumbs from logs: via <PlatformLink to="/configuration/options/#breadcrumbs_logger">`breadcrumbs_logger`</PlatformLink>
+
+Don't need a feature? Remove its options from the snippet.
+
+```ruby {filename:config.ru}
+require 'sentry-ruby'
+
+Sentry.init do |config|
+  config.dsn = '___PUBLIC_DSN___'
+
+  # Add breadcrumbs from logs
+  config.breadcrumbs_logger = [:sentry_logger, :http_logger]
+
+  # Enables Tracing.
+  # Set to 1.0 to capture 100% of transactions for tracing.
+  # We recommend reducing this value in production.
+  config.traces_sample_rate = 1.0
+
+  # Enables Profiling for a percentage of sampled transactions.
+  # Requires the stackprof gem.
+  config.profiles_sample_rate = 1.0
+end
+
+use Sentry::Rack::CaptureExceptions
+```
+
+#### Without Rackup
+
+If you're not using Rackup to run your app, you have to place Sentry's initialization code **before** your code requires Sinatra.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#traces_sample_rate">`traces_sample_rate`</PlatformLink>
+- Profiling: via <PlatformLink to="/configuration/options/#profiles_sample_rate">`profiles_sample_rate`</PlatformLink> (requires the `stackprof` gem from the Install step)
+- Breadcrumbs from logs: via <PlatformLink to="/configuration/options/#breadcrumbs_logger">`breadcrumbs_logger`</PlatformLink>
+
+Don't need a feature? Remove its options from the snippet.
+
+
+```ruby {filename:app.rb}
+require 'sentry-ruby'
+
+Sentry.init do |config|
+  config.dsn = '___PUBLIC_DSN___'
+
+  # Add breadcrumbs from logs
+  config.breadcrumbs_logger = [:sentry_logger, :http_logger]
+
+  # Enables Tracing.
+  # Set to 1.0 to capture 100% of transactions for tracing.
+  # We recommend reducing this value in production.
+  config.traces_sample_rate = 1.0
+
+  # Enables Profiling for a percentage of sampled transactions.
+  # Requires the stackprof gem.
+  config.profiles_sample_rate = 1.0
+end
+
+# in a non-rackup environment you must initialize the Sentry SDK before requiring sinatra
+require 'sinatra'
+use Sentry::Rack::CaptureExceptions
+
+get "/" do
+  raise "foo"
+end
+```

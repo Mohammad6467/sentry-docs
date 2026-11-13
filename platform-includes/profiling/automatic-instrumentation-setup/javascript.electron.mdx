@@ -1,0 +1,25 @@
+In the Electron renderer process:
+
+```javascript
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    // Add browser profiling integration to the list of integrations
+    Sentry.browserTracingIntegration(),
+    Sentry.browserProfilingIntegration(),
+  ],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for tracing.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+  // Set `tracePropagationTargets` to control for which URLs trace propagation should be enabled
+  tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
+
+  // Set profileSessionSampleRate to 1.0 to profile during every session.
+  // The decision, whether to profile or not, is made once per session (when the SDK is initialized).
+  profileSessionSampleRate: 1.0,
+});
+```

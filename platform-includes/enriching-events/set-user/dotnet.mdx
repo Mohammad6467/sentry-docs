@@ -1,0 +1,16 @@
+```csharp
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.User = new SentryUser
+    {
+        Email = "john.doe@example.com"
+    };
+});
+```
+
+```fsharp
+SentrySdk.ConfigureScope(
+  fun scope ->
+    scope.User <- SentryUser(Email = "john.doe@example.com")
+  )
+```

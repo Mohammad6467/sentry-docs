@@ -1,0 +1,178 @@
+---
+title: Cloud Functions for Firebase
+description: Learn how to set up Sentry in your Cloud Functions for Firebase project and capture your first events.
+sdk: sentry.javascript.node
+fallbackGuide: javascript.node
+categories:
+  - server
+  - serverless
+  - server-only
+---
+
+<PlatformContent includePath="getting-started-primer" />
+
+[Cloud Functions for Firebase](https://firebase.google.com/docs/functions) let you automatically run backend code in response to events triggered by Firebase features and HTTPS requests. Sentry's Node SDK works out of the box with Cloud Functions for Firebase.
+
+## What's Instrumented
+
+The Sentry SDK includes a built-in <PlatformLink to="/configuration/integrations/firebase/">Firebase integration</PlatformLink> that automatically instruments:
+
+- **Cloud Functions** - HTTP functions, background functions, and event triggers
+- **[Firestore](https://firebase.google.com/docs/firestore)** - Database operations like reads, writes, and queries are instrumented out of the box
+
+This integration is enabled by default, so you get automatic performance monitoring and error tracking without any additional configuration.
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your Firebase Functions project:
+
+```bash {tabTitle:npm}
+npm install @sentry/node @sentry/profiling-node --save
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/node @sentry/profiling-node
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/node @sentry/profiling-node
+```
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing** and **Profiling**.
+
+<Include name="quick-start-features-expandable" />
+
+Create an initialization file (for example, `instrument.js`) that imports and initializes Sentry.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+- Profiling: via <PlatformLink to="/configuration/options/#profileSessionSampleRate">`profileSessionSampleRate`</PlatformLink>, <PlatformLink to="/configuration/options/#profileLifecycle">`profileLifecycle`</PlatformLink>, and the profiling integration
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```javascript {filename:instrument.js}
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    // enables Profiling
+    nodeProfilingIntegration(),
+  ],
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+
+  // Enables Profiling for every session.
+  profileSessionSampleRate: 1.0,
+  profileLifecycle: "trace",
+});
+```
+
+Import the initialization file at the very top of your functions entry point (for example, `index.js`), before any other imports:
+
+<Alert>
+  It's important that you import the initialization file **before** any other `require`
+  calls, including Firebase imports. This ensures Sentry can properly instrument
+  all modules.
+</Alert>
+
+```javascript {filename:index.js}
+require("./instrument"); // Require Sentry initialization first
+
+const { onRequest } = require("firebase-functions/https");
+const { onDocumentCreated } = require("firebase-functions/firestore");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+
+// HTTP function - automatically instrumented
+exports.helloWorld = onRequest(async (request, response) => {
+  response.send("Hello from Firebase!");
+});
+
+// Firestore trigger - automatically instrumented
+exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
+  const userId = event.params.userId;
+  // Your logic here
+});
+```
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with another library, use an integration to capture those logs as Sentry Logs automatically:
+- <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink> for `console` calls
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+On Node.js, <PlatformLink to="/configuration/integrations/noderuntimemetrics/">`nodeRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add a test function that throws an error, deploy your functions, and trigger the test endpoint:
+
+```javascript {filename:index.js}
+require("./instrument");
+const { onRequest } = require("firebase-functions/https");
+
+exports.testSentry = onRequest(async () => {
+  throw new Error("Sentry Test Error");
+});
+```
+
+```bash
+firebase deploy --only functions
+curl https://<region>-<project-id>.cloudfunctions.net/testSentry
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Cloud Functions for Firebase application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+- Explore <PlatformLink to="/tracing/">Tracing</PlatformLink> to learn how to inspect application performance
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

@@ -1,0 +1,13 @@
+```python
+import sentry_sdk
+
+sentry_sdk.set_tag("page.locale", "de-at")
+```
+
+Alternatively, multiple tags can be set at once with the `set_tags` function:
+
+```python
+import sentry_sdk
+
+sentry_sdk.set_tags({"page.locale": "de-at", "page.type": "article"})
+```

@@ -1,0 +1,12 @@
+```csharp
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.SetExtra("character.name", "Mighty Fighter");
+});
+```
+
+```fsharp
+SentrySdk.ConfigureScope(fun scope ->
+    scope.SetExtra("character.name", "Mighty Fighter")
+    )
+```

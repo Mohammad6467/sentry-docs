@@ -1,0 +1,25 @@
+```javascript {tabTitle:CommonJS}
+// Require this first!
+require("./instrument");
+
+// Now require other modules
+const Koa = require("koa");
+
+const app = new Koa();
+
+// Add your middleware here.
+
+app.listen(3030);
+```
+
+```javascript {tabTitle:ESM}
+// Start with `node --import ./instrument.mjs app.mjs`. A top-level
+// import of the instrument file loses Koa's spans and route names.
+import Koa from "koa";
+
+const app = new Koa();
+
+// Add your middleware here.
+
+app.listen(3030);
+```

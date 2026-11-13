@@ -1,0 +1,81 @@
+Sentry can display snippets of your code next to the event stack traces. This feature is called <PlatformLink to="/data-management/debug-files/source-context/">source context</PlatformLink>.
+
+There are three options for setting up source context:
+
+### 1. Manually upload with the Sentry CLI
+
+If you add the `--include-sources` flag to the sentry-cli `debug-files upload` command, sentry-cli will scan your debug files to find references to the source code files, resolve them in the local file system, bundle them up, and upload them to Sentry.
+
+<OrgAuthTokenNote />
+
+```bash
+sentry-cli debug-files upload --auth-token ___ORG_AUTH_TOKEN___ \
+  --include-sources \
+  --org ___ORG_SLUG___ \
+  --project ___PROJECT_SLUG___ \
+  PATH_TO_DSYMS
+```
+
+### 2. Fastlane plugin
+
+If you're already using Fastlane, you can use the [Sentry Fastlane plugin](https://github.com/getsentry/sentry-fastlane-plugin)
+to upload your source to Sentry by adding `include_sources: true` to the plugin call.
+
+<OrgAuthTokenNote />
+
+```ruby {tabTitle:Current Fastlane plugin}
+sentry_debug_files_upload(
+  auth_token: '___ORG_AUTH_TOKEN___',
+  org_slug: '___ORG_SLUG___',
+  project_slug: '___PROJECT_SLUG___',
+  include_sources: true, # Optional. For source context.
+)
+```
+
+<Alert level="warning" title="Breaking Changes in Version 2.0.0">
+
+The Sentry Fastlane plugin version 2.0.0 includes breaking changes due to the sentry-cli 3.0.0 upgrade. If you're upgrading from version 1.x, see the [migration guide](/platforms/apple/dsym/#migration-guide) for details.
+
+</Alert>
+
+### 3. Xcode Build Phase
+
+You can upload your sources to Sentry after every build through Xcode. To do this, add the `--include-sources` flag to the sentry-cli `debug-files upload` command in the [Upload Debug Symbols](#xcode-build-phase) Xcode build phase script.
+
+<OrgAuthTokenNote />
+
+```bash {tabTitle:Warn on failures - nonblocking}
+if [[ "$(uname -m)" == arm64 ]]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+fi
+
+if which sentry-cli >/dev/null; then
+export SENTRY_ORG=___ORG_SLUG___
+export SENTRY_PROJECT=___PROJECT_SLUG___
+export SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+ERROR=$(sentry-cli debug-files upload --include-sources "$DWARF_DSYM_FOLDER_PATH" 2>&1 >/dev/null)
+if [ ! $? -eq 0 ]; then
+echo "warning: sentry-cli - $ERROR"
+fi
+else
+echo "warning: sentry-cli not installed, download from https://github.com/getsentry/sentry-cli/releases"
+fi
+```
+
+```bash {tabTitle:Error on failures - blocking}
+if [[ "$(uname -m)" == arm64 ]]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+fi
+
+if which sentry-cli >/dev/null; then
+export SENTRY_ORG=___ORG_SLUG___
+export SENTRY_PROJECT=___PROJECT_SLUG___
+export SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+ERROR=$(sentry-cli debug-files upload --include-sources "$DWARF_DSYM_FOLDER_PATH" --force-foreground 2>&1 >/dev/null)
+if [ ! $? -eq 0 ]; then
+echo "error: sentry-cli - $ERROR"
+fi
+else
+echo "error: sentry-cli not installed, download from https://github.com/getsentry/sentry-cli/releases"
+fi
+```

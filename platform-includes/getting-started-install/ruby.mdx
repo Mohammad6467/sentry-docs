@@ -1,0 +1,6 @@
+Add the `sentry-ruby` and `stackprof` gems to your `Gemfile` to enable Profiling. Keep `stackprof` before `sentry-ruby` so it loads first:
+
+```ruby {filename:Gemfile}
+gem "stackprof"
+gem "sentry-ruby"
+```

@@ -1,0 +1,212 @@
+---
+title: Data Collected
+description: "See what data is collected by the Sentry Elixir SDK."
+sidebar_order: 1
+---
+
+Sentry takes data privacy very seriously and has default settings in place that prioritize data safety, especially when it comes to personally identifiable information (PII) data. When you add the Sentry SDK to your application, you allow it to collect data and send it to Sentry during the runtime of your application.
+
+The category types and amount of data collected vary, depending on the integrations you've enabled in the Sentry SDK. Here's a list of data categories the Sentry Elixir SDK collects:
+
+## Request Data Scrubbing
+
+When using the Plug or Phoenix integrations, `Sentry.PlugContext` adds request data to error reports and scrubs it first. Starting with SDK version 14.0.0, scrubbed values are replaced with `"[Filtered]"`. Earlier versions use `"*********"`.
+
+A parameter is considered sensitive when its name contains one of the following terms, compared case-insensitively. For example, `auth` matches both `Authorization` and `user_auth_code`:
+
+`auth`, `token`, `secret`, `password`, `passwd`, `pwd`, `key`, `jwt`, `bearer`, `sso`, `saml`, `csrf`, `xsrf`, `credentials`, `session`, `sid`, `identity`
+
+Values that look like credit card numbers (13 to 16 digits, optionally separated by spaces or dashes) are also replaced with `"[Filtered]"`, regardless of their parameter name.
+
+The `:header_scrubber`, `:cookie_scrubber`, `:remote_address_reader`, `:url_scrubber`, and `:body_scrubber` options below are passed to `Sentry.PlugContext` in your endpoint or router, not set with `config :sentry`. If one of these callbacks raises an exception, the SDK logs the failure at the `:error` level and uses its default for that field instead. This means that data only your custom scrubber was removing is sent to Sentry for as long as the scrubber keeps failing.
+
+## HTTP Headers
+
+**Default Behavior:**
+
+- Request headers are included
+- The `authorization`, `authentication`, and `cookie` headers are removed
+- The `referer` header is kept, but sensitive query parameters in its URL are replaced with `"[Filtered]"`
+
+**Configuration:**
+
+```elixir
+plug Sentry.PlugContext, header_scrubber: &MyApp.SentryScrubber.scrub_headers/1
+```
+
+## Cookies
+
+**Default Behavior:**
+
+- **All cookies are removed by default** for privacy protection
+- No cookie data is sent to Sentry unless you configure a custom cookie scrubber
+
+**Configuration:**
+
+```elixir
+plug Sentry.PlugContext, cookie_scrubber: &MyApp.SentryScrubber.scrub_cookies/1
+```
+
+## Users' IP Address
+
+**Default Behavior:**
+
+- Client IP addresses are collected from HTTP requests
+- The SDK reads the `x-forwarded-for` header first and falls back to `conn.remote_ip`
+
+**Configuration:**
+
+```elixir
+plug Sentry.PlugContext, remote_address_reader: {MyApp.RemoteIp, :read}
+```
+
+## Request URL
+
+**Default Behavior:**
+
+- The full request URL is sent, including the query string
+- Values of sensitive query parameters are replaced with `"[Filtered]"`, for example, `/search?token=abc123&page=2` is sent as `/search?token=[Filtered]&page=2`
+- All other query parameters are sent exactly as the client sent them
+- The URL path isn't scrubbed, so a secret in a path segment, such as `/reset/<token>`, is sent unless you add a custom URL scrubber
+
+**Configuration:**
+
+```elixir
+# Use a custom URL scrubber
+plug Sentry.PlugContext, url_scrubber: &MyApp.SentryScrubber.scrub_url/1
+
+# Or turn off URL scrubbing entirely
+plug Sentry.PlugContext, url_scrubber: nil
+```
+
+## Request Parameters
+
+**Default Behavior:**
+
+- Request body and query parameters are included, and so are path parameters when `Sentry.PlugContext` runs after routing, such as in your router
+- Values of sensitive parameters are replaced with `"[Filtered]"`, including in nested maps and lists
+
+**Configuration:**
+
+```elixir
+# Use a custom body scrubber
+plug Sentry.PlugContext, body_scrubber: &MyApp.SentryScrubber.scrub_params/1
+
+# Or don't send any request parameters
+plug Sentry.PlugContext, body_scrubber: nil
+```
+
+## Adding Sensitive Parameter Names
+
+<AvailableSince version="14.0.0" />
+
+To redact more parameters, add terms to the `:param_keys` list of the `:scrubber` option:
+
+```elixir
+config :sentry,
+  scrubber: [param_keys: ["internal_ref"]]
+```
+
+The terms extend the default list and can't remove terms from it. They're matched the same way as the default terms, as case-insensitive substrings, so `"internal_ref"` also redacts `"INTERNAL_REF_ID"`. The additional terms apply everywhere the SDK scrubs parameters:
+
+- Request parameters and the query string of the request URL
+- The query string of the `referer` header URL
+- `Sentry.LiveViewHook` breadcrumb data
+- Oban job arguments
+- Function arguments captured in stack traces
+
+They don't change which headers are removed.
+
+## Source Context
+
+**Default Behavior:**
+
+- Source code context is **disabled by default**
+- Must be explicitly enabled and packaged
+
+**Configuration:**
+
+```elixir
+# Enable source code context
+config :sentry,
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()],
+  context_lines: 3  # Lines before/after error
+```
+
+## Local Variables In Stack Trace
+
+**Default Behavior:**
+
+- Local variables are not included in stack traces
+- Stack traces contain function names, function variables, modules, file paths, and line numbers only
+- Values of sensitive keys in captured function arguments are replaced with `"[Filtered]"`
+
+**Note:** Unlike some other SDKs, the Elixir SDK does not currently support capturing local variables due to the nature of the Erlang VM.
+
+## Logger Data
+
+When using the Logger integration, additional data is collected:
+
+**Log Metadata:**
+
+- Configurable via the `:metadata` option
+- Can include specific keys or all available metadata
+
+**Process Context:**
+
+- Process ID (PID)
+- GenServer state and last message (for crashed GenServers)
+- Process crash reasons
+
+**Configuration:**
+
+```elixir
+config :logger, :sentry,
+  metadata: [:request_id, :user_id] # Specific keys
+# or
+config :logger, :sentry,
+  metadata: :all # All available metadata
+```
+
+<Alert>
+
+There's always risk that PII will leak into Sentry via Logger integration. It is recommended to review your log metadata and scrub any sensitive information before logging.
+
+</Alert>
+
+## Application Dependencies
+
+**Default Behavior:**
+
+- List of loaded applications and their versions are sent
+- Helps with debugging version-specific issues
+
+**Configuration:**
+
+```elixir
+# Disable dependency reporting
+config :sentry,
+  report_deps: false
+```
+
+## Oban Job Data
+
+When using the Oban integration for background jobs:
+
+**Job Information:**
+
+- Job arguments, attempt count, queue name
+- Worker class name
+- Job metadata and tags
+- Max attempts and current state
+
+Values of sensitive keys in job arguments are replaced with `"[Filtered]"`.
+
+## More information
+
+To learn more about customizing PII data collection, see the following API docs:
+
+- [Configuration](https://hexdocs.pm/sentry/10.10.0/Sentry.html#module-configuration)
+- [PlugContext](https://hexdocs.pm/sentry/Sentry.PlugContext.html)
+- [Logger Handler](https://hexdocs.pm/sentry/10.10.0/Sentry.LoggerHandler.html)

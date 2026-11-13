@@ -1,0 +1,74 @@
+---
+title: Manual Setup
+sidebar_order: 3
+description: "Learn how to manually set up the SDK."
+---
+
+If you can't (or prefer not to) use the [gradle plugin](/platforms/kotlin/guides/kotlin-multiplatform/#install), you can follow the instructions below to configure your application manually.
+
+## Install
+
+Sentry captures data by using an SDK within your application’s runtime.
+
+To install the Kotlin Multiplatform SDK, you need to add the following to your `build.gradle.kts` file in your shared module. For Apple targets, this installs the Sentry Cocoa SDK with Kotlin's official [SwiftPM import](https://kotlinlang.org/docs/multiplatform/multiplatform-spm-import.html), which requires Kotlin 2.4 or newer:
+
+```kotlin {filename:shared/build.gradle.kts}
+plugins {
+  kotlin("multiplatform")
+  // .. your other plugins
+}
+
+kotlin {
+  androidTarget()
+  iosArm64()
+  iosSimulatorArm64()
+
+  sourceSets {
+    commonMain.dependencies {
+      implementation("io.sentry:sentry-kotlin-multiplatform:{{@inject packages.version('sentry.kotlin.kmp', '0.28.0') }}")
+    }
+  }
+
+  swiftPMDependencies {
+    swiftPackage(
+      url = url("https://github.com/getsentry/sentry-cocoa.git"),
+      // Use the exact version from the Cocoa SDK version compatibility table.
+      version = exact("9.29.2"),
+      products = listOf(product("Sentry")),
+    )
+    // Only if you target macOS or tvOS. Use a higher version if your app needs it.
+    macosMinimumDeploymentTarget.set("12.0")
+    tvosMinimumDeploymentTarget.set("15.0")
+  }
+}
+```
+
+Make sure the Sentry Cocoa SDK version matches the one listed for your Kotlin Multiplatform SDK version in the [version compatibility table](https://github.com/getsentry/sentry-kotlin-multiplatform?tab=readme-ov-file#cocoa-sdk-version-compatibility-table).
+
+Then run Kotlin's one-time [Xcode linkage package setup](https://kotlinlang.org/docs/multiplatform/multiplatform-spm-import.html#run-the-swiftpm-integration-task) so Xcode links the Sentry Cocoa SDK into your app.
+
+<Alert level="warning">
+
+Starting with version `0.28.0`, the SDK requires iOS 15, tvOS 15, macOS 12, or watchOS 9 or newer, and no longer supports installing the Sentry Cocoa SDK with CocoaPods.
+
+</Alert>
+
+## Configure
+
+Configuration should happen as early as possible in your application's lifecycle.
+
+<PlatformContent includePath="getting-started-config" />
+
+## Verify
+
+This snippet includes an intentional error, so you can test that everything is working as soon as you set it up.
+
+<PlatformContent includePath="getting-started-verify" />
+
+<Alert>
+
+Learn more about manually capturing an error or message in our <PlatformLink to="/usage/">Usage documentation</PlatformLink>.
+
+</Alert>
+
+To view and resolve the recorded error, log into [sentry.io](https://sentry.io) and select your project. Clicking on the error's title will open a page where you can see detailed information and mark it as resolved.

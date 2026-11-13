@@ -1,0 +1,9 @@
+Logs are enabled by default. Initialize the SDK as usual, then use `Sentry.logger` to send logs.
+
+```dart
+await SentryFlutter.init(
+  (options) {
+    options.dsn = "___PUBLIC_DSN___";
+  },
+);
+```

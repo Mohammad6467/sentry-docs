@@ -1,0 +1,25 @@
+---
+title: Configuration Options
+description: "Configure Relay to suit the needs of your organization."
+sidebar_order: 3
+---
+
+Configuration for Relay is typically recorded in the file `.relay/config.yml` (relative to the working directory). Configuration options can be overridden through environment variables. To change the config location, pass the `--config` option to any Relay command:
+
+```shell
+❯ ./relay run --config /path/to/folder
+```
+
+All configuration keys are `snake_case`.
+
+## Credentials
+
+Credentials can be initiated as described in the [getting started page](/product/relay/getting-started/), but can be overridden by setting the following environment variables:
+
+- Secret key: `RELAY_SECRET_KEY`.
+- Public key: `RELAY_PUBLIC_KEY`.
+- ID: `RELAY_ID`.
+
+## Configuration Reference
+
+For a comprehensive and up-to-date list of all configuration options, see the [`ConfigValues`](https://getsentry.github.io/relay/relay_config/struct.ConfigValues.html) reference. Note that some options, such as `processing`, are only relevant when [self-hosting](https://develop.sentry.dev/self-hosted/). For an example of how `ConfigValues` translate to an actual `config.yml`, see the config example in [Initializing Configuration](../getting-started/#initializing-configuration).

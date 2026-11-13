@@ -1,0 +1,9 @@
+```python
+import sentry_sdk
+
+sentry_sdk.add_breadcrumb(
+    category='auth',
+    message='Authenticated user %s' % user.email,
+    level='info',
+)
+```

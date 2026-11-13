@@ -1,0 +1,52 @@
+```ts {tabTitle:Vite} {mdExpandTabs} {8}
+// vite.config.ts
+import { defineConfig } from "vite";
+import { sentryVitePlugin } from "@sentry/bundler-plugins/vite";
+
+export default defineConfig({
+  plugins: [
+    sentryVitePlugin({
+      applicationKey: "your-custom-application-key",
+    }),
+  ],
+});
+```
+
+```js {tabTitle:Webpack} {7}
+// webpack.config.js
+const { sentryWebpackPlugin } = require("@sentry/bundler-plugins/webpack");
+
+module.exports = {
+  plugins: [
+    sentryWebpackPlugin({
+      applicationKey: "your-custom-application-key",
+    }),
+  ],
+};
+```
+
+```js {tabTitle:esbuild} {7}
+// esbuild.config.js
+const { sentryEsbuildPlugin } = require("@sentry/bundler-plugins/esbuild");
+
+require("esbuild").build({
+  plugins: [
+    sentryEsbuildPlugin({
+      applicationKey: "your-custom-application-key",
+    }),
+  ],
+});
+```
+
+```js {tabTitle:Rollup} {7}
+// rollup.config.mjs
+import { sentryRollupPlugin } from "@sentry/bundler-plugins/rollup";
+
+export default {
+  plugins: [
+    sentryRollupPlugin({
+      applicationKey: "your-custom-application-key",
+    }),
+  ],
+};
+```

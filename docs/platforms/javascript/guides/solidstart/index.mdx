@@ -1,0 +1,382 @@
+---
+title: SolidStart
+description: Learn how to set up Sentry in your SolidStart application and capture your first events.
+sdk: sentry.javascript.solidstart
+categories:
+  - browser
+  - server
+---
+
+<Alert level="warning" title="Important">
+
+This SDK is currently in **beta**. Beta features are still in progress and may have bugs. Please reach out on [GitHub](https://github.com/getsentry/sentry-javascript/issues/new/choose) if you have any feedback or concerns.
+
+</Alert>
+
+<Alert>
+  This SDK guide is specifically for SolidStart. For instrumenting your Solid
+  app, see our [Solid SDK](/platforms/javascript/guides/solid/).
+</Alert>
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+```bash {tabTitle:npm}
+npm install @sentry/solidstart --save
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/solidstart
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/solidstart
+```
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing**, **Session Replay**, and **User Feedback**.
+
+<Include name="quick-start-features-expandable" />
+
+You need to initialize and configure the Sentry SDK in two places: the client side and the server side.
+
+<Alert>
+
+The examples in this guide will use TypeScript with a `src` folder structure. Make sure to adjust the file paths and extensions (`.js`, `.jsx`, `.ts`, `.tsx`) to match your project setup.
+
+</Alert>
+
+### Configure Client-Side Sentry
+
+Import and initialize the Sentry SDK in your `/src/entry-client.tsx` file. If you use Solid Router, add its tracing integration as shown below and wrap your router in the next step.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink> and `solidRouterBrowserTracingIntegration()` if you're using Solid Router
+- Session Replay: via `replayIntegration()`, sampled with <PlatformLink to="/configuration/options/#replaysSessionSampleRate">`replaysSessionSampleRate`</PlatformLink> and <PlatformLink to="/configuration/options/#replaysOnErrorSampleRate">`replaysOnErrorSampleRate`</PlatformLink>
+- User Feedback: via <PlatformLink to="/user-feedback/configuration/">`feedbackIntegration()`</PlatformLink>
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```jsx {filename:src/entry-client.tsx}
+import * as Sentry from "@sentry/solidstart";
+// import solidRouterBrowserTracingIntegration if you're using Solid Router
+import { solidRouterBrowserTracingIntegration } from "@sentry/solidstart/solidrouter";
+import { mount, StartClient } from "@solidjs/start/client";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    // add solidRouterBrowserTracingIntegration if you're using Solid Router
+    // enables automatic instrumentation
+    solidRouterBrowserTracingIntegration(),
+    // enables Session Replay
+    Sentry.replayIntegration(),
+    // enables User Feedback
+    Sentry.feedbackIntegration({
+      // Additional integration configuration goes in here
+      colorScheme: "system",
+    }),
+  ],
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+
+  // Capture replays for 10% of all sessions,
+  // plus for 100% of sessions with an error
+  // Requires Sentry.replayIntegration()
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+
+mount(() => <StartClient />, document.getElementById("app"));
+```
+
+### Configure Server-Side Sentry
+
+Initialize Sentry on the server. On SolidStart 2, do this in a Nitro startup plugin, which runs once when the server starts. On SolidStart 1, create an `instrument.server.ts` file in your `src` folder.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+
+```typescript {tabTitle:SolidStart 2} {filename:server/plugins/sentry.ts} {mdExpandTabs}
+import * as Sentry from "@sentry/solidstart";
+import { definePlugin } from "nitro";
+
+export default definePlugin(() => {
+  Sentry.init({
+    dsn: "___PUBLIC_DSN___",
+
+    // Enables Tracing.
+    // Set to 1.0 to capture 100% of spans for tracing.
+    // We recommend reducing this value in production.
+    tracesSampleRate: 1.0,
+  });
+});
+```
+
+```javascript {tabTitle:SolidStart 1} {filename:src/instrument.server.ts}
+import * as Sentry from "@sentry/solidstart";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+});
+```
+
+### Server Instrumentation
+
+The Sentry SDK provides [middleware lifecycle](https://docs.solidjs.com/solid-start/advanced/middleware) handlers that enhance the data collected by Sentry on the server side, enabling distributed tracing between the client and server.
+
+Create or update your `src/middleware.ts` file and add the `sentryBeforeResponseMiddleware` handler:
+
+```typescript {filename:src/middleware.ts} {6}
+import { sentryBeforeResponseMiddleware } from "@sentry/solidstart";
+import { createMiddleware } from "@solidjs/start/middleware";
+
+export default createMiddleware({
+  onBeforeResponse: [
+    sentryBeforeResponseMiddleware(),
+    // Add your other middleware handlers after `sentryBeforeResponseMiddleware`
+  ],
+});
+```
+
+Add the Sentry plugin to your build config and register the middleware you just created. On SolidStart 2, add `sentrySolidStart` to `vite.config.ts`. On SolidStart 1, wrap your `app.config.ts` with `withSentry` so that the instrumentation file gets included in your build output.
+
+```typescript {tabTitle:SolidStart 2} {filename:vite.config.ts} {mdExpandTabs}
+import { sentrySolidStart } from "@sentry/solidstart/vite";
+import { solidStart } from "@solidjs/start/config";
+import { nitro } from "nitro/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    solidStart({
+      middleware: "./src/middleware.ts",
+    }),
+    sentrySolidStart(),
+    nitro(),
+  ],
+});
+```
+
+```javascript {tabTitle:SolidStart 1} {filename:app.config.ts} {5-15}
+import { withSentry } from "@sentry/solidstart";
+import { defineConfig } from "@solidjs/start/config";
+
+export default defineConfig(
+  withSentry(
+    {
+      // other SolidStart config options...
+      middleware: "./src/middleware.ts",
+    },
+    {
+      // Your Sentry build-time config (such as source map upload options)
+      // optional: if your `instrument.server.ts` file is not located inside `src`
+      instrumentation: "./mypath/instrument.server.ts",
+    }
+  )
+);
+```
+
+### Configure Solid Router
+
+If you're using Solid Router and the Sentry `solidRouterBrowserTracingIntegration` integration, wrap your Solid Router with `withSentryRouterRouting` to enable Sentry to collect navigation spans:
+
+```tsx {filename:app.tsx} {5,9,11}
+import { Router } from "@solidjs/router";
+import { FileRoutes } from "@solidjs/start/router";
+import { withSentryRouterRouting } from "@sentry/solidstart/solidrouter";
+
+const SentryRouter = withSentryRouterRouting(Router);
+
+export default function App() {
+  return (
+    <SentryRouter>
+      <FileRoutes />
+    </SentryRouter>
+  );
+}
+```
+
+### Run Your Application
+
+On SolidStart 2, the Vite plugin instruments your dependencies at build time, so the server needs no preload flag. Build with `vite build` and start the output directly.
+
+On SolidStart 1, instrumentation has to happen as early as possible, so add an `--import` flag pointing at the instrumentation file that the build output creates: `.output/server/instrument.server.mjs`.
+
+<Alert>
+
+On SolidStart 1, run your build command to generate the `instrument.server.mjs` file before running your app. Depending on your build preset, the location of the file can differ. To find out where the file is located, monitor the build log output for:
+
+`[Sentry SolidStart withSentry] Successfully created /my/project/path/.output/server/instrument.server.mjs.`
+
+</Alert>
+
+If you're not able to use the `--import` flag on SolidStart 1, check the alternative <PlatformLink to="/install/">installation methods</PlatformLink>.
+
+For example, update your scripts in `package.json`:
+
+```json {tabTitle:SolidStart 2} {filename:package.json} {mdExpandTabs}
+{
+  "scripts": {
+    "build": "vite build",
+    "start": "node .output/server/index.mjs"
+  }
+}
+```
+
+```json {tabTitle:SolidStart 1} {filename:package.json}
+{
+  "scripts": {
+    "start:vinxi": "NODE_OPTIONS='--import ./.output/server/instrument.server.mjs ' vinxi start",
+    "start:node": "node --import ./.output/server/instrument.server.mjs .output/server/index.mjs"
+  }
+}
+```
+
+### Capture Solid Errors
+
+To automatically report exceptions from inside a component tree to Sentry, wrap Solid's `ErrorBoundary` with Sentry's helper function:
+
+<PlatformContent includePath="getting-started-capture-errors" />
+
+### Add Readable Stack Traces With Source Maps
+
+To upload source maps for clear error stack traces, add your Sentry auth token, organization, and project slug to the Sentry plugin in your build config:
+
+```typescript {tabTitle:SolidStart 2} {filename:vite.config.ts} {mdExpandTabs}
+import { sentrySolidStart } from "@sentry/solidstart/vite";
+import { solidStart } from "@solidjs/start/config";
+import { nitro } from "nitro/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    solidStart(),
+    sentrySolidStart({
+      org: "___ORG_SLUG___",
+      project: "___PROJECT_SLUG___",
+      // store your auth token in an environment variable
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    }),
+    nitro(),
+  ],
+});
+```
+
+```TypeScript {tabTitle:SolidStart 1} {filename:app.config.ts}
+import { withSentry } from '@sentry/solidstart';
+import { defineConfig } from '@solidjs/start/config';
+
+export default defineConfig(
+  withSentry(
+    {
+      /* Your SolidStart config */
+    },
+    {
+      org: "___ORG_SLUG___",
+      project: "___PROJECT_SLUG___",
+      // store your auth token in an environment variable
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    }
+  ),
+);
+```
+
+To keep your auth token secure, always store it in an environment variable instead of directly in your files:
+
+<OrgAuthTokenNote />
+
+```bash {filename:.env}
+SENTRY_AUTH_TOKEN=___ORG_AUTH_TOKEN___
+```
+
+Alternatively, you can create a `.env.sentry-build-plugin` file:
+
+```bash {filename:.env.sentry-build-plugin}
+SENTRY_ORG="___ORG_SLUG___"
+SENTRY_PROJECT="___PROJECT_SLUG___"
+SENTRY_AUTH_TOKEN="___ORG_AUTH_TOKEN___"
+```
+
+<Include name="vite-loadenv-hint-splitlayout.mdx" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you already use `console`, capture those calls as Sentry Logs with <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink>.
+We also provide integrations for:
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+On Node.js, <PlatformLink to="/configuration/integrations/noderuntimemetrics/">`nodeRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add a test button to an existing page. Clicking it throws an error that Sentry captures:
+
+<PlatformContent includePath="getting-started-browser-sandbox-warning" />
+
+```jsx
+<button
+  type="button"
+  onClick={() => {
+    throw new Error("Sentry Test Error");
+  }}
+>
+  Test Sentry Error
+</button>
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your SolidStart application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+- <PlatformLink to="/troubleshooting/#dealing-with-ad-blockers">Set up tunneling</PlatformLink> to avoid ad blockers blocking Sentry events
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- If you encountered issues with setting up Sentry, <PlatformLink to="/install/">review alternative installation methods</PlatformLink>
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

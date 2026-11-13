@@ -1,0 +1,40 @@
+---
+title: PagerDuty Integration
+sidebar_title: PagerDuty
+---
+
+## Create a PagerDuty app
+In PagerDuty, go to `https://{YOUR_PAGERDUTY_SUBDOMAIN}.pagerduty.com/developer/applications`.
+
+Click on __New App__, and configure the _Info & Functionality_ section as follows:
+
+| Setting       | Value                           |
+| ------------- | ------------------------------- |
+| Name          | Sentry                          |
+| Description   | Trigger alerts through Sentry   |
+| Functionality | Events Integration              |
+
+Afterward, click __Next__, and configure the _Events Integration_ section as follows:
+
+| Setting                                 | Value                                                |
+| --------------------------------------- | ---------------------------------------------------- |
+| Transform Event Data                    | No                                                   |
+| Send Change Events                      | No                                                   |
+| Simple Install Flow > Redirect URLs     | `{YOUR_SENTRY_DOMAIN}/extensions/pagerduty/setup/`   |
+
+Next, click __Register App__, to complete the setup, and be redirected to the app registration page.
+
+Find your newly created app, and copy down the value in the _App ID_ field (e.g. `PV5SD0T`)
+
+## Connect your PagerDuty App to your Sentry instance
+Add the _App ID_ to your `config.yml` for Sentry:
+
+```yml
+pagerduty.app-id: 'PV5SD0T'
+```
+
+Restart your Sentry instance and follow our [documentation on configuring the PagerDuty integration](https://docs.sentry.io/product/integrations/pagerduty/) to use the integration.
+
+<Alert title="Note">
+    After changing configuration files, re-run the <code>./install.sh</code> script, to rebuild and restart the containers. See the <Link to="/self-hosted/#configuration">configuration section</Link> for more information.
+</Alert>

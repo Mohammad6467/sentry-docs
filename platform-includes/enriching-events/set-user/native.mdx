@@ -1,0 +1,15 @@
+```c
+#include <sentry.h>
+
+// Set a user with id, username, email, and ip_address
+sentry_value_t user = sentry_value_new_user("42", "Jane Doe", "jane.doe@example.com", "{{auto}}");
+// Set additional custom user data
+sentry_value_set_by_key(user, "custom_key", sentry_value_new_string("custom_value"));
+sentry_set_user(user);
+```
+
+<Alert>
+
+To see user statistics in [Release Health](/platforms/native/configuration/releases/#release-health), set at least one of the following: `id`, `username`, or `email`.
+
+</Alert>

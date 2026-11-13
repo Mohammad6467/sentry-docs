@@ -1,0 +1,115 @@
+```javascript {tabTitle:Http functions} {mdExpandTabs}
+const Sentry = require("@sentry/google-cloud-serverless");
+// ___PRODUCT_OPTION_START___ profiling
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+// ___PRODUCT_OPTION_END___ profiling
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  // ___PRODUCT_OPTION_START___ profiling
+
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  // ___PRODUCT_OPTION_END___ profiling
+  // ___PRODUCT_OPTION_START___ performance
+
+  // Add Performance Monitoring by setting tracesSampleRate
+  // Set tracesSampleRate to 1.0 to capture 100% of transactions
+  // We recommend adjusting this value in production
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#traces-sample-rate
+  tracesSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ performance
+  // ___PRODUCT_OPTION_START___ profiling
+
+  // Enable profiling for a percentage of sessions
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#profileSessionSampleRate
+  profileSessionSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ profiling
+});
+
+exports.helloHttp = Sentry.wrapHttpFunction((req, res) => {
+  throw new Error("oh, hello there!");
+});
+```
+
+```javascript {tabTitle:Background functions}
+const Sentry = require("@sentry/google-cloud-serverless");
+// ___PRODUCT_OPTION_START___ profiling
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+// ___PRODUCT_OPTION_END___ profiling
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  // ___PRODUCT_OPTION_START___ profiling
+
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  // ___PRODUCT_OPTION_END___ profiling
+  // ___PRODUCT_OPTION_START___ performance
+
+  // Add Performance Monitoring by setting tracesSampleRate
+  // Set tracesSampleRate to 1.0 to capture 100% of transactions
+  // We recommend adjusting this value in production
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#traces-sample-rate
+  tracesSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ performance
+  // ___PRODUCT_OPTION_START___ profiling
+
+  // Enable profiling for a percentage of sessions
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#profileSessionSampleRate
+  profileSessionSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ profiling
+});
+
+exports.helloEvents = Sentry.wrapEventFunction(
+  (data, context, callback) => {
+    throw new Error("oh, hello there!");
+  }
+);
+```
+
+```javascript {tabTitle:CloudEvent functions}
+const Sentry = require("@sentry/google-cloud-serverless");
+// ___PRODUCT_OPTION_START___ profiling
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+// ___PRODUCT_OPTION_END___ profiling
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  // ___PRODUCT_OPTION_START___ profiling
+
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  // ___PRODUCT_OPTION_END___ profiling
+  // ___PRODUCT_OPTION_START___ performance
+
+  // Add Performance Monitoring by setting tracesSampleRate
+  // Set tracesSampleRate to 1.0 to capture 100% of transactions
+  // We recommend adjusting this value in production
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#traces-sample-rate
+  tracesSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ performance
+  // ___PRODUCT_OPTION_START___ profiling
+
+  // Enable profiling for a percentage of sessions
+  // Learn more at
+  // https://docs.sentry.io/platforms/javascript/configuration/options/#profileSessionSampleRate
+  profileSessionSampleRate: 1.0,
+  // ___PRODUCT_OPTION_END___ profiling
+});
+
+exports.helloEvents = Sentry.wrapCloudEventFunction(
+  (context, callback) => {
+    throw new Error("oh, hello there!");
+  }
+);
+```

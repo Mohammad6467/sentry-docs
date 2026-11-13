@@ -1,0 +1,27 @@
+name: '💻 Docs Platform: 🔗 404 Error'
+labels: ['Docs Platform', 'Bug', '404']
+description: Broken links, missing pages, and other 404 errors.
+body:
+  - type: textarea
+    id: url
+    attributes:
+      label: URL
+      description: The broken link or missing page.
+      placeholder: |-
+        https://docs.sentry.io/your-broken-link
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Info
+      description: Where did you find the link? Anything else we should know?
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |-
+        ## Thanks 🙏
+        Check our [triage docs](https://open.sentry.io/triage/) for what to expect next.
+    validations:
+      required: false

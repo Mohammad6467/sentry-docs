@@ -1,0 +1,33 @@
+```ruby
+require "active_support/parameter_filter"
+
+Sentry.init do |config|
+  #...
+
+  # this example uses Rails' parameter filter to sanitize the event payload
+  # for Rails 6+
+  filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
+  # for Rails 5
+  filter = ActionDispatch::Http::ParameterFilter.new(Rails.application.config.filter_parameters)
+
+  config.before_send = lambda do |event, _hint|
+    # Sanitize extra data
+    if event.extra
+      event.extra = filter.filter(event.extra)
+    end
+
+    # Sanitize user data
+    if event.user
+      event.user = filter.filter(event.user)
+    end
+
+    # Sanitize context data (if present)
+    if event.contexts
+      event.contexts = filter.filter(event.contexts)
+    end
+
+    # Return the sanitized event object
+    event
+  end
+end
+```

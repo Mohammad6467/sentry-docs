@@ -1,0 +1,54 @@
+Let's test your setup and confirm that data reaches your Sentry project.
+
+### Issues
+
+To verify that Sentry captures errors and creates issues in your Sentry project, add a button that throws an error when clicked.
+
+<OnboardingOption optionId="performance" hideForThisOption>
+  Open the page in a browser and click the button to throw an error.
+</OnboardingOption>
+
+<PlatformContent includePath="getting-started-browser-sandbox-warning" />
+
+```html
+<script>
+  function triggerError() {
+    throw new Error("Sentry Test Error");
+  }
+</script>
+
+<button onclick="triggerError()">Break the World</button>
+```
+
+<OnboardingOption optionId="performance">
+### Tracing
+
+To test your tracing configuration, update the previous code to measure a simulated operation with a span.
+
+Open the page in a browser and click the button. In Sentry, look for the test error on the Issues page and the span in the associated trace.
+
+```html
+<script>
+  async function triggerError() {
+    await Sentry.startSpan(
+      { name: "Example Frontend Span", op: "test" },
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        throw new Error("Sentry Test Error");
+      },
+    );
+  }
+</script>
+
+<button onclick="triggerError()">Break the World</button>
+```
+
+</OnboardingOption>
+
+<OnboardingOption optionId="logs">
+<Include name="logs/javascript-quick-start-verify-logs-splitlayout" />
+
+</OnboardingOption>
+
+<Include name="metrics/javascript-quick-start-verify-metrics-splitlayout" />

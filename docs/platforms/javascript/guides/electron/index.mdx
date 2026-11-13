@@ -1,0 +1,214 @@
+---
+title: Electron
+description: "Learn how to manually set up Sentry in your Electron app and capture your first events."
+sdk: sentry.javascript.electron
+categories:
+  - desktop
+---
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+```bash {tabTitle:npm}
+npm install @sentry/electron --save
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/electron
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/electron
+```
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing**, **Session Replay**, and **User Feedback**.
+
+<Include name="quick-start-features-expandable" />
+
+You should initialize the SDK in both the `main` process and every `renderer` process you spawn.
+Don't need a feature? Remove its integration and options from the respective snippet.
+
+### Configure the Main Process
+
+Initialize the SDK in your Electron `main` process as early as possible.
+
+The main process snippets also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink> and `startupTracingIntegration()`
+
+```javascript
+import * as Sentry from "@sentry/electron/main";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+  integrations: [
+    // Enables startup tracing in the main process
+    Sentry.startupTracingIntegration(),
+  ],
+});
+```
+
+### Configure the Renderer Process
+
+Initialize the SDK in your Electron renderer processes as early as possible. All renderer events are sent through the main process so passing `dsn`, `release` or `environment` to renderer `init` will have no effect.
+
+The renderer process snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink> and `browserTracingIntegration()`
+- Session Replay: via `replayIntegration()`, sampled with <PlatformLink to="/configuration/options/#replaysSessionSampleRate">`replaysSessionSampleRate`</PlatformLink> and <PlatformLink to="/configuration/options/#replaysOnErrorSampleRate">`replaysOnErrorSampleRate`</PlatformLink>
+- User Feedback: via <PlatformLink to="/user-feedback/configuration/">`feedbackIntegration()`</PlatformLink>
+
+```javascript
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init({
+  integrations: [
+    // enables automatic instrumentation
+    Sentry.browserTracingIntegration(),
+    // enables Session Replay
+    Sentry.replayIntegration(),
+    // enables User Feedback
+    Sentry.feedbackIntegration({
+      // Additional integration configuration goes in here
+      colorScheme: "system",
+    }),
+  ],
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+
+  // Capture replays for 10% of all sessions,
+  // plus for 100% of sessions with an error
+  // Requires Sentry.replayIntegration()
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+```
+
+### Configure Any Utility Processes
+
+If your app uses utility processes, initialize Sentry in each one.
+
+```javascript
+import * as Sentry from "@sentry/electron/utility";
+
+Sentry.init();
+```
+
+<Alert title="Capturing errors in the preload context">
+
+If your app uses a preload script and `contextIsolation: true`, Sentry can't automatically capture errors that occur in the preload context. To include those, initialize Sentry in your preload script as well:
+
+```javascript
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init(); // don't forget to add your configuration options
+```
+
+</Alert>
+
+<Expandable title="Did you change the userData directory?" level="warning">
+
+If you change the `userData` directory used by your app, ensure this change is made before you configure the SDK as this path is used to cache scope and events between application restarts.
+
+```javascript
+import { app } from "electron";
+import * as Sentry from "@sentry/electron/main";
+
+app.setPath("userData", "~/.config/my-app");
+Sentry.init({ dsn: "___PUBLIC_DSN___" });
+```
+
+</Expandable>
+
+### Using Framework-Specific SDKs
+
+If you're using a framework in your renderers, you can combine the Electron SDK with the framework SDK:
+
+```javascript
+import { init } from "@sentry/electron/renderer";
+import { init as reactInit } from "@sentry/react";
+
+init(
+  {
+    dsn: "___PUBLIC_DSN___",
+    integrations: [
+      /* integrations */
+    ],
+    /* Other Electron and React SDK config */
+  },
+  reactInit
+);
+```
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with another library, use an integration to capture those logs as Sentry Logs automatically:
+- <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink> for `console` calls
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add a test button to one of your renderer pages. Clicking it throws an error that Sentry captures:
+
+```javascript
+document.getElementById("testError").addEventListener("click", () => {
+  throw new Error("Sentry Test Error");
+});
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Electron application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/features/">Explore Electron-specific features</PlatformLink>
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

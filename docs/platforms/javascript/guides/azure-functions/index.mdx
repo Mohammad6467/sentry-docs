@@ -1,0 +1,147 @@
+---
+title: Azure Functions
+description: Learn how to manually set up Sentry in your Azure Functions and capture your first events.
+sdk: sentry.javascript.node
+fallbackGuide: javascript.node
+categories:
+  - server
+  - serverless
+  - server-only
+---
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add `@sentry/node` as a runtime dependency to your application:
+
+<PlatformContent includePath="getting-started-install" />
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing** and **Profiling**.
+
+<Include name="quick-start-features-expandable" />
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink>
+- Profiling: via <PlatformLink to="/configuration/options/#profileSessionSampleRate">`profileSessionSampleRate`</PlatformLink> and <PlatformLink to="/configuration/integrations/nodeprofiling/">`nodeProfilingIntegration()`</PlatformLink>
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+Make sure to initialize Sentry at the top of your function file before importing any other modules:
+
+```javascript {tabTitle:async}
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  integrations: [nodeProfilingIntegration()],
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+
+  // Enables Profiling.
+  // Set to 1.0 to profile every session.
+  // We recommend reducing this value in production.
+  profileSessionSampleRate: 1.0,
+});
+
+// your function code
+```
+
+### Capture Errors
+
+Because Azure Functions are short-lived, you have to explicitly `flush` Sentry events after calling `captureException`, or they may be lost before being sent to Sentry.
+
+```javascript {tabTitle:async}
+const Sentry = require("@sentry/node");
+
+// your Sentry init code
+
+module.exports = async function (context, req) {
+  try {
+    // Your function code
+  } catch (e) {
+    // use Sentry.withScope to enrich the event with request data
+    Sentry.withScope((scope) => {
+      // Attach request context (requires dataCollection: { userInfo: true })
+      scope.setSDKProcessingMetadata({ request: req });
+      Sentry.captureException(e);
+    });
+    await Sentry.flush(2000);
+  }
+  // ...
+};
+```
+
+### Add Readable Stack Traces With Source Maps
+
+<PlatformContent includePath="getting-started-sourcemaps-short-version" />
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you're already logging with another library, use an integration to capture those logs as Sentry Logs automatically:
+- <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink> for `console` calls
+- <PlatformLink to="/logs/#console-integration">Consola</PlatformLink>
+- <PlatformLink to="/configuration/integrations/pino/">Pino</PlatformLink>
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+On Node.js, <PlatformLink to="/configuration/integrations/noderuntimemetrics/">`nodeRuntimeMetricsIntegration`</PlatformLink> also collects runtime health metrics automatically.
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Add an intentional error in your function and flush the event before the function execution ends:
+
+```javascript {tabTitle:async}
+const Sentry = require("@sentry/node");
+
+module.exports = async function (context, req) {
+  try {
+    throw new Error("Sentry Test Error");
+  } catch (error) {
+    Sentry.captureException(error);
+    await Sentry.flush(2000);
+  }
+};
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your Azure Functions application. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+- <PlatformLink to="/agent-tracing/">Set up Agent Tracing</PlatformLink> to monitor your AI systems
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

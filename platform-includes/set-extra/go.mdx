@@ -1,0 +1,7 @@
+```go
+import "github.com/getsentry/sentry-go/attribute"
+
+sentry.ConfigureScope(func(scope *sentry.Scope) {
+	scope.SetAttributes(attribute.String("character.name", "Mighty Fighter"))
+})
+```

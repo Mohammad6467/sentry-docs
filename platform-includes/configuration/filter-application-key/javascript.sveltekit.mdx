@@ -1,0 +1,11 @@
+```js {tabTitle:Vite} {filename:vite.config.js} {6}
+export default defineConfig({
+  plugins: [
+    sentrySvelteKit({
+      unstable_sentryVitePluginOptions: {
+        applicationKey: "your-custom-application-key",
+      },
+    })
+  ]
+});
+```

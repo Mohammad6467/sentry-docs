@@ -1,0 +1,66 @@
+#### Add Replay Integration
+
+Add `replayIntegration()` to your client initialization and configure the sample rates.
+
+**Testing tip:** Set `replaysSessionSampleRate: 1.0` during development to capture all sessions.
+
+```typescript {filename:instrumentation-client.ts}
+import * as Sentry from "@sentry/nextjs";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  // This sets the sample rate to be 10%. You may want this to be 100% while
+  // in development and sample at a lower rate in production
+  replaysSessionSampleRate: 0.1,
+
+  // If the entire session is not sampled, use the below sample rate to sample
+  // sessions when an error occurs.
+  replaysOnErrorSampleRate: 1.0,
+
+  integrations: [Sentry.replayIntegration()],
+});
+```
+
+#### Privacy Options
+
+By default, Replay masks all text and blocks media. Customize privacy settings based on your needs.
+
+See <PlatformLink to="/session-replay/privacy/">Session Replay Privacy</PlatformLink> for all options.
+
+```typescript {filename:instrumentation-client.ts}
+Sentry.replayIntegration({
+  // Text masking (default: true)
+  maskAllText: true,
+
+  // Block images/videos (default: true)
+  blockAllMedia: true,
+
+  // Mask specific inputs
+  maskAllInputs: true,
+}),
+```
+
+### PII & Privacy Considerations
+
+Personally identifiable information (PII) and privacy are important considerations when enabling Session Replay. There are multiple ways in which Sentry helps you avoid collecting PII, including:
+- <PlatformLink to="/session-replay/privacy/#masking">Masking</PlatformLink>, which replaces text content with something else (the default behavior being to replace each character with a `*`).
+- Making <PlatformLink to="/session-replay/privacy/#network-request-and-response-bodies-and-headers">network request and response bodies</PlatformLink> opt-in, to avoid capturing endpoints that may contain PII.
+
+For static websites without sensitive data, you can opt out of the default masking and blocking settings.
+
+#### Lazy-Loading Replay
+
+Load Replay only when needed instead of at startup. Useful for reducing initial bundle size.
+
+```typescript {filename:instrumentation-client.ts}
+// Don't add replayIntegration to init
+Sentry.init({
+  integrations: [],
+});
+
+// Later, when you want to start recording:
+import("@sentry/nextjs").then((lazyLoadedSentry) => {
+  Sentry.addIntegration(lazyLoadedSentry.replayIntegration());
+});
+```

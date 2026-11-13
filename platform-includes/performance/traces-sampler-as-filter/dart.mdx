@@ -1,0 +1,13 @@
+```dart
+await Sentry.init((options) {
+  options.tracesSampler = (samplingContext) {
+    final spanContext = samplingContext.spanContext;
+    if (spanContext.name == 'health-check') {
+      return 0.0;
+    }
+    return 0.1;
+  };
+});
+```
+
+This example uses stream mode, the default. Filter service spans using `spanContext.name` or `spanContext.attributes`. For transaction mode, explicitly set `options.traceLifecycle = SentryTraceLifecycle.static` and use `samplingContext.transactionContext` instead.

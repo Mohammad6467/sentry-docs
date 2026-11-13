@@ -1,0 +1,24 @@
+---
+title: Hapi
+description: "Adds performance instrumentation for Hapi. (default)"
+supportedCategories:
+  - server
+---
+
+For more information on setting up Sentry Hapi support, see the [Hapi Sentry documentation](/platforms/javascript/guides/hapi/).
+
+_Import name: `Sentry.hapiIntegration`_
+
+This integration is enabled by default when performance monitoring is enabled. If you'd like to modify your default integrations, read [this](./../#modifying-default-integrations).
+
+The `hapiIntegration` adds instrumentation for the Hapi framework to capture spans using [`@opentelemetry/instrumentation-hapi`](https://www.npmjs.com/package/@opentelemetry/instrumentation-hapi).
+
+```JavaScript
+Sentry.init({
+  integrations: [Sentry.hapiIntegration()],
+});
+```
+
+## Supported Versions
+
+- Hapi: `>=17.0.0 <22`

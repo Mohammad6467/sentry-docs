@@ -1,0 +1,370 @@
+---
+title: Design Principles
+sidebar_order: 2
+---
+
+This document contains a set of design principles and requirements which should be applied to all Sentry APIs. These are _requirements_ when designing public APIs (such as Sentry's Web API), but internal APIs (such as an an internal service that Sentry communicates with) should attempt to adhere to these principles as well where it makes sense.
+
+In the Sentry monolith, we use [Django REST framework](https://www.django-rest-framework.org/) (DRF).
+
+<Alert>
+
+**Note:** Not every API we have exposed follows these guidelines, but is expected that new endpoints do, and we will work to migrate existing endpoints to adhere to these principles.
+
+</Alert>
+
+## APIs are Public
+
+**Every endpoint in Sentry's API is public.**
+
+Even if its not publicly documented, if it exists in the exposed routes, you should treat it as being public. You should **not** expose internal details, including parameters which control behaviors of the underlying system.
+
+For example, if you had an endpoint that needs to query a replica in some cases, do **not** expose a parameter to control the behavior (e.g. `useReplica=1`). Instead you should control this flag on the backend based on other information (such as a feature flag or account setting).
+
+## Route Design
+
+Routes are one of the most important parts of your API structure, as they communicate relationships and intent. Its important to get them right and adhere to a set of guidelines to make it easier to understand and use the API.
+
+This is no different - and just as important - to how you think about the URL structure of your user interface.
+
+Use the following guidelines for naming resources and their collections:
+
+- **Do** use lowercase and hyphenated collection names, e.g. `commit-files`.
+- **Do** use plural collection names. Avoid using uncountable words because the user can't know whether the GET returns one item or a list.
+- **Do** use `snake_case` for path parameters. e.g. `tags/{tag_name}/`.
+- **Do** consistently shorten parameters that are excessively long when the term is unambiguous. e.g. `organization` -> `org`.
+
+Standard path parameters that should be shortened in routes:
+
+- `organization` -> `org` (e.g. `/organizations/{org}/`)
+
+### Prefixes and Scoping
+
+Information in Sentry is typically constrained by tenants. That is, almost all information is scoped to an organization. All endpoints which query customer data **must** be scoped to an organization:
+
+- **Do** prefix organization resource collections with `/organizations/{org}/`.
+- **Do** prefix project resource collections with `/projects/{org}/{project}/`.
+- **Do not** expose endpoints which require `org` as a query parameter (it should always be a path parameter).
+
+Knowing when to choose which constraint to couple an endpoint to will be based on the purpose of an endpoint. For example, if an endpoint is only ever going to be used to query data for a single project, it should be prefixed with `/projects/{org}/{project}/things`. If an endpoint would need to exist to query multiple projects (which is common with cross-project queries), you likely should expose it as `/organizations/{org}/things`, and expose a query param to filter on the project(s).
+
+Exceptions to these rules include:
+
+- User-specific data is not scoped to an organization.
+- Endpoints which are used to manage Sentry itself, such as the `health` endpoint or administrative endpoints (which may query data from multiple organizations).
+
+### Resource Nesting
+
+**Do not** exceed three levels of resource nesting.
+
+Nesting resources such as `/organizations/{org}/projects/`, is **preferred** over flattened resources like `/0/projects/`. This improves readability and exposes a natural understanding of resource hierarchy and relationships. However, nesting can make URLs too long and hard to use. Sentry uses 3-level nesting as a hybrid solution.
+
+Here are some possible urls for values with this resource hierarchy: organization -> project -> tag -> value:
+
+- 👍 `/projects/{org}/{project}/tags/{tag}/values`
+- 👎 `/organizations/{org}/projects/{project}/tags/{tag}/values/`
+- 👎 `/values/`
+
+Hierarchy here does not necessarily mean that one collection belongs to a parent collection, it simply implies a relationship. For example:
+
+- `/projects/{project_identifier}/teams/` refers to the **teams** that have been added to specific project
+- `/teams/{team_identifier}/projects/` refers to the **projects** a specific team has been added to
+
+## Parameter Design
+
+- **Do** use `camelCase` for query params and request body params. e.g. `/foo/?userId=123`.
+- **Do** use `camelCase` for all response attributes. e.g. `{userId: "123"}`.
+
+For consistency, we also try to re-use well known parameters across endpoints.
+
+- **Do** use `sortBy` for sorting. e.g. `?sortBy=-dateCreated`.
+- **Do** use `orderBy` for ordering. e.g. `?orderBy=asc` or `?orderBy=desc`.
+- **Do** use `limit` for limiting the number of results returned. e.g. `?limit=10`.
+- **Do** use `cursor` for pagination.
+
+### Resource Identifiers
+
+Identifiers exist both within the route (`/organizations/{organization}/projects/`) as well as within other parameters such as query strings (`?organization=123`) and request bodies (`{organization: "123"}`).
+
+The most important concern here is to ensure that a single identifier is exposed to key to resources. For example, it is preferred to use `organization` and accept both `organization_id` and `organization_slug` as valid identifiers.
+
+- **Do** shorten the attribute name to represent the resource (e.g. `organization` instead of `organization_slug`).
+- **Do** support both numeric and human-readable identifiers for resources in a single parameter (e.g. `organization`).
+- **Do not** require specifically-typed parameters for identifiers (e.g. `organization_slug` _and_ `organization_id`).
+
+In addition, responses should expose both parameters to the client, and suggest the use of the human-readable identifier when exposed to end-users.
+
+## Operations and Verbs
+
+When using HTTP, we stick with a subset of the verbs available to define our operations. These create implicit operations on resources.
+
+For example, in a traditional RPC style API, we might define a `listProjects` method. In HTTP we rely on the `GET` verb and the URL route to indicate that this operation will return a list of resources.
+
+The following verbs are used in our API design:
+
+- **GET** - Read a resource
+- **POST** - Create a resource
+- **PUT** - Update a resource; Should support partial updates
+- **DELETE** - Delete a resource
+
+Do not use **PATCH** as it is redundant.
+
+**PATCH** is commonly used to apply partial updates, but due to the practical nature of updates almost always being partial, we choose to support that behavior via **PUT** instead.
+
+Additionally, while uncommon, if you have a use-case where you need to "replace a resource", you should define it using a **POST** request instead:
+
+```
+POST /resources/{id}
+```
+
+### Batch Operations
+
+Resources can get complicated when you need to expose batch operations vs single resource operations. For batch operations it is preferred to expose them as a `PUT` request on the collection when possible.
+
+Let's say for example we have an endpoint that mutates an issue:
+
+```
+PUT /api/0/organizations/{org}/issues/{issue}/
+```
+
+When designing a batch interface, we simply expose it on the collection instead of the individual resource:
+
+```
+PUT /api/0/organizations/{org}/issues/
+```
+
+You may also need to expose selectors on batch resources, which can be done through normal request parameters:
+
+```
+PUT /api/0/organizations/{org}/issues/
+{
+  "issues": [1, 2, 3]
+}
+```
+
+## Resource Isolation
+
+Each API should be **stateless**, have a clear purpose, and do one specific thing. To achieve that, stick with the standard methods listed below. If your API needs to be more complicated, work with [owners-api](https://github.com/orgs/getsentry/teams/owners-api) on how to create it.
+
+- **Do** expose endpoints to operate on individual objects (such as a project)
+- **Do not** combine multiple operations in a single endpoint _unless it is necessary_ (e.g. requires transaction guarantees).
+- **Do** use explicit custom endpoints for complex operations, rather than overloading a single resource's endpoint.
+
+| Functionality | HTTP Method | Response Object | Example |
+| --- | ---- | ---- | ---- |
+| Create | POST | Serialized created resource | [Create a Project](https://github.com/getsentry/sentry/blob/756bda4419cfaf28b2e351278a5c4c1665082eba/src/sentry/api/endpoints/team_projects.py#L156) |
+| Update | PUT | Serialized updated resource | [Update Project Settings](https://github.com/getsentry/sentry/blob/756bda4419cfaf28b2e351278a5c4c1665082eba/src/sentry/api/endpoints/project_details.py#L474) |
+| Get | GET | Serialized single resource | [Retrieve a Project](https://github.com/getsentry/sentry/blob/756bda4419cfaf28b2e351278a5c4c1665082eba/src/sentry/api/endpoints/project_details.py#L415) |
+| Delete | DELETE | None | [Delete a Project](https://github.com/getsentry/sentry/blob/756bda4419cfaf28b2e351278a5c4c1665082eba/src/sentry/api/endpoints/project_details.py#L840) |
+| List | GET | List of multiple serialized resources | [List All the Projects in an Organization](https://github.com/getsentry/sentry/blob/756bda4419cfaf28b2e351278a5c4c1665082eba/src/sentry/api/endpoints/organization_projects.py#L49) |
+| Batch Get | GET | List of serialized resources | Get project details for specific project ids |
+| Batch Create | POST | List of serialized created resources | Create multiple projects with the same settings  |
+| Batch Update | PUT | List of serialized updated resources | [Update a list of issues](https://github.com/getsentry/sentry/blob/ea14f740c78b8df68281ffad6a3bf3709ed3d5b5/src/sentry/api/endpoints/organization_group_index.py#L379) |
+| Batch Delete | DELETE | None | [Delete a list of issues](https://github.com/getsentry/sentry/blob/ea14f740c78b8df68281ffad6a3bf3709ed3d5b5/src/sentry/api/endpoints/organization_group_index.py#L467)|
+
+Here are some examples of how to use standard methods to represent complex tasks:
+
+**Retrieve statistics for a resource**
+
+The best approach here is to encode it as an attribute in the resource:
+
+```
+GET /api/0/projects/{project}/
+{
+  "projects": [],
+  "count": 100,
+}
+```
+
+In some cases this will be returned as part of an HTTP header, specifically for things related to pagination.
+
+**Get newest resources**
+
+Order and filtering should happen as part of list api query parameters. Here's a [good read](https://www.moesif.com/blog/technical/api-design/REST-API-Design-Filtering-Sorting-and-Pagination/).
+
+- **Do** rely on `orderBy` and `sortBy`. e.g. `/api/0/issues/{issue_id}/events?orderBy=-date`
+- **Do not** create dedicated routes for these behaviors.
+
+## Responses
+
+Each response object returned from an API should be a serialized version of the Django model associated with the resource. You can see all the existing serializers [here](https://github.com/getsentry/sentry/tree/master/src/sentry/api/serializers/models).
+
+Some guidelines around the shape of responses:
+
+- **Do** use `camelCase` for all response attributes. e.g. `{"numCount": "123"}`.
+- **Do** return a responses as a named resource (e.g. `{"user": {"id": "123"}}`).
+- **Do** indicate collections using plural nouns (e.g. `{"users": []}`).
+- **Do not** return custom objects. **Do** use a `Serializer` to serialize the resource.
+- **Do** return the smallest amount of data necessary to represent the resource.
+
+Additionally because JavaScript is a primary consumer, be mindful of the restrictions on things like numbers. Generally speaking:
+
+- **Do** return resource identifiers (even numbers) as strings.
+- **Do** return decimals as strings.
+- **Do not** return floating point numbers.
+
+**A note on resource format**
+
+You'll find the majority of our resources may violate the named resource response format. That is, `/api/0/projects/{project}/` returns a flattened representation:
+
+```
+GET /api/0/projects/{project}/
+{
+  "id": 5,
+  "name": "foo",
+  ...
+}
+```
+
+Whereas our guidelines state it should be nested:
+
+```
+GET /api/0/projects/{project}/
+{
+  "project": {
+    "id": "5",
+    "name": "foo",
+    ...
+  }
+}
+```
+
+This is how the original API was designed, but due to the limitations we intend to move to nested objects in the future.
+
+### Expanding responses
+
+Expanding responses allow us to include relational information on a resource without loading it by default.
+
+In general, endpoints should expose the fewest fields that will make the API usable in the general scenario. Doing one SQL request per API request is a good rule of thumb. To return information on a bounded relationship, endpoints should rely on the `expand` parameter. To return an unbounded relationship, it should be another endpoint.
+
+To take an example, let's talk about the projects list endpoint. A project belongs to an organization but could be on multiple teams.
+
+By default, here's what the project endpoint should look like
+
+```json
+GET /api/0/projects/{project}/
+{
+  "id": 5,
+  "name": "foo",
+  ...
+}
+```
+
+To display information about a bounded relationship, a user should be able to use the `expand` parameter. This is generally only true for 1:1 relationships.
+
+```json
+GET /api/0/projects/{project}/?expand=organization
+{
+  "id": 5,
+  "name": "foo",
+  "organization": {
+    "slug": "bar",
+    "isEarlyAdopter": false,
+    ...
+  }
+  ...
+}
+```
+
+For unbounded relationships, make a separate query. This allows the query to be paginated and reduces the risk of having an arbitrarily large payload.
+
+```json
+GET /api/0/projects/{project}/teams
+[
+  {
+    "id": 1,
+    "name": "Team 1",
+    "slug": "team1",
+  },
+  {
+    "id": 2,
+    "name": "Team 2",
+    "slug": "team2",
+  }
+]
+
+```
+
+### Collapsing responses
+
+Similar to expanding responses, an API endpoint can also collapse responses. When the `collapse` parameter is passed, the API should not return attributes that have been collapsed.
+
+To take an example, let's look at the project list endpoints again. A project gets events and hence, has a `stats` component, which conveys information about how many events were received for the project. Let's say we made the stats part of the endpoint public, along with the rest of the projects list endpoint.
+
+```json
+GET /api/0/projects/{project}/
+{
+  "id": 5,
+  "name": "foo",
+  "stats": {
+    "24h": [
+        [1629064800, 27],
+        [1629068400, 24],
+        ...
+    ]
+  }
+}
+```
+
+The `collapse` parameter can be passed to not return stats information.
+
+```json
+GET /api/0/projects/{project}/?collapse=stats
+{
+  "id": 5,
+  "name": "foo",
+  ...
+}
+```
+
+This is typically only needed if the endpoint is already public and we do not want to introduce a breaking change. Remember, if the endpoint is public and we remove an attribute, it is a breaking change. If you are iterating on an undocumented endpoint, return the minimal set of attributes and rely on the `expand` parameter to get more detailed information.
+
+### Pagination
+
+>> APIs often need to provide collections of data, most commonly in the `List` standard method. However, collections can be arbitrarily sized, and tend to grow over time, increasing lookup time as well as the size of the responses being sent over the wire. This is why it's important for collections to be paginated.
+
+Paginating responses is a [standard practice for APIs](https://google.aip.dev/158), which Sentry follows.
+
+We've seen an example of a `List` endpoint above; these endpoints have two tell-tale signs:
+
+```json
+GET /api/0/projects/{project}/teams
+[
+  {
+    "id": 1,
+    "name": "Team 1",
+    "slug": "team1",
+  },
+  {
+    "id": 2,
+    "name": "Team 2",
+    "slug": "team2",
+  }
+]
+
+```
+
+1. The endpoint returns an array, or multiple, objects instead of just one.
+2. The endpoint can sometimes end in a plural (s), but more importantly, it does __not__ end in an identifier (`*_slug`, or `*_id`).
+
+To paginate a response at Sentry, you can leverage the [`self.paginate`](https://github.com/getsentry/sentry/blob/24.2.0/src/sentry/api/base.py#L463-L476) method as part of your endpoint.
+`self.paginate` is the standardized way we paginate at Sentry, and it helps us with unification of logging and monitoring.
+You can find multiple [examples of this](https://github.com/getsentry/sentry/blob/24.2.0/src/sentry/api/endpoints/api_applications.py#L22-L33) in the code base. They'll look something like:
+
+```python
+def get(self, request: Request) -> Response:
+    queryset = ApiApplication.objects.filter(
+        owner_id=request.user.id, status=ApiApplicationStatus.active
+    )
+
+    return self.paginate(
+        request=request,
+        queryset=queryset,
+        order_by="name",
+        paginator_cls=OffsetPaginator,
+        on_results=lambda x: serialize(x, request.user),
+    )
+```
+
+The example above uses an offset type paginator, but feel free to use whatever paginator type suits your endpoint needs.
+There are some [existing types](https://github.com/getsentry/sentry/blob/24.2.0/src/sentry/api/paginator.py) that you can leverage out of the box, or you can extend the base class [`BasePaginator`](https://github.com/getsentry/sentry/blob/24.2.0/src/sentry/api/paginator.py#L48) and implement your own.

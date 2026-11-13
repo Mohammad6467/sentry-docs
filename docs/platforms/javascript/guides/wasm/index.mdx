@@ -1,0 +1,125 @@
+---
+title: Wasm
+sdk: sentry.javascript.wasm
+description: "Learn how to manually set up Sentry in your JavaScript application with WebAssembly modules and capture your first events."
+keywords: ["wasm", "webassembly"]
+categories:
+  - browser
+  - browser-only
+---
+
+<Alert title="Are you using a JavaScript framework?">
+  This guide focuses on configuring Sentry for WebAssembly modules. If your
+  application uses a specific framework, start by following that framework's
+  guide to set up the SDK. Then return here to add the WebAssembly-specific
+  configuration.
+</Alert>
+
+<PlatformContent includePath="getting-started-prerequisites" />
+
+<StepConnector selector="h2" showNumbers={true}>
+
+## Install
+
+### Install the Sentry SDK
+
+Run the command for your preferred package manager to add the Sentry SDK to your application:
+
+```bash {tabTitle:npm}
+npm install @sentry/browser @sentry/wasm --save
+```
+
+```bash {tabTitle:yarn}
+yarn add @sentry/browser @sentry/wasm
+```
+
+```bash {tabTitle:pnpm}
+pnpm add @sentry/browser @sentry/wasm
+```
+
+## Configure
+
+**Error Monitoring** starts working as soon as you call `Sentry.init()`. **Logs** and **Application Metrics** need no extra configuration, and you'll learn how to send them in steps [#3](#send-logs) and [#4](#send-application-metrics-).
+This guide also enables **Tracing**.
+
+<Include name="quick-start-features-expandable" />
+
+To use the SDK, initialize it in your application's entry point before loading your WebAssembly modules. Sentry's Wasm integration enhances the Browser SDK and adds debug information for WebAssembly modules.
+
+The snippet also turns on:
+
+- Tracing: via <PlatformLink to="/configuration/options/#tracesSampleRate">`tracesSampleRate`</PlatformLink> and `browserTracingIntegration()`
+
+Don't need a feature? Remove its integration and options from the snippet.
+
+```javascript
+import * as Sentry from "@sentry/browser";
+import { wasmIntegration } from "@sentry/wasm";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+
+  integrations: [
+    // enables automatic instrumentation
+    Sentry.browserTracingIntegration(),
+    wasmIntegration(),
+  ],
+
+  // Enables Tracing.
+  // Set to 1.0 to capture 100% of spans for tracing.
+  // We recommend reducing this value in production.
+  tracesSampleRate: 1.0,
+
+  // Set `tracePropagationTargets` to control for which URLs trace propagation should be enabled
+  tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
+});
+```
+
+### Control the Data You Send to Sentry
+
+<PlatformContent includePath="getting-started-data-collection" />
+
+## Send Logs
+
+<PlatformContent includePath="getting-started-logs" />
+
+If you already use `console`, capture those calls as Sentry Logs with <PlatformLink to="/logs/#console-integration">`consoleLoggingIntegration`</PlatformLink>.
+
+## Send Application Metrics <FeatureBadge type="new" />
+
+<PlatformContent includePath="getting-started-metrics" />
+
+## Verify Your Setup
+
+Let's test your setup and confirm that Sentry is working correctly and sending data to your Sentry project.
+
+Call a WebAssembly function that triggers a trap, then capture the exception:
+
+```javascript
+try {
+  wasmModule.divide(10, 0);
+} catch (error) {
+  Sentry.captureException(error);
+}
+```
+
+### View Captured Data in Sentry
+
+Now, head over to your project on [Sentry.io](https://sentry.io/) to view the collected data (it takes a couple of moments for the data to appear).
+
+<Include name="quick-start-locate-data-expandable" />
+
+## Next Steps
+
+At this point, you should have integrated Sentry into your JavaScript application with WebAssembly modules. Here's what to explore next:
+
+- Explore [practical guides](/get-started/guides/) on what to monitor, log, track, and investigate after setup
+
+<Expandable permalink={false} title="Are you having problems setting up the SDK?">
+
+- Find various topics in <PlatformLink to="/troubleshooting/">Troubleshooting</PlatformLink>
+- [Get support](https://www.sentry.help/en/)
+
+</Expandable>
+
+</StepConnector>

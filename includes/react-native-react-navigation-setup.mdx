@@ -1,0 +1,88 @@
+### Manual Setup
+
+```jsx {5, 20} {mdExpandTabs} {tabTitle: Functional Components}
+import * as Sentry from "@sentry/react-native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [navigationIntegration],
+})
+
+const App = () => {
+  const containerRef = createNavigationContainerRef();
+
+  return (
+    <NavigationContainer
+      ref={containerRef}
+      onReady={() => {
+        navigationIntegration.registerNavigationContainer(containerRef);
+      }}>
+    </NavigationContainer>
+  );
+};
+```
+
+```jsx {5, 21} {tabTitle: Class Components}
+import * as Sentry from "@sentry/react-native";
+import { NavigationContainer } from "@react-navigation/native";
+
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [navigationIntegration],
+})
+
+class App extends React.Component {
+  containerRef = createNavigationContainerRef();
+
+  render() {
+    return (
+      <NavigationContainer
+        ref={this.containerRef}
+        onReady={() => {
+          navigationIntegration.registerNavigationContainer(this.containerRef);
+        }}>
+      </NavigationContainer>
+    );
+  }
+}
+```
+
+### With Sentry.NavigationContainer
+
+<Alert>
+
+Available in SDK version `8.13.0` and above.
+
+</Alert>
+
+`Sentry.NavigationContainer` is a drop-in replacement for React Navigation's `NavigationContainer` that handles registration automatically. It accepts all the same props, including `ref` for imperative navigation.
+
+```jsx
+import * as Sentry from "@sentry/react-native";
+
+Sentry.init({
+  dsn: "___PUBLIC_DSN___",
+  integrations: [
+    Sentry.reactNavigationIntegration({
+      enableTimeToInitialDisplay: true,
+    }),
+  ],
+});
+
+function App() {
+  return (
+    <Sentry.NavigationContainer>
+      {/* Your navigation structure */}
+    </Sentry.NavigationContainer>
+  );
+}
+```

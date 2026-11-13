@@ -1,0 +1,27 @@
+```javascript {tabTitle:CommonJS}
+// Require this first!
+require("./instrument");
+
+// Now require other modules
+const Fastify = require("fastify");
+
+const app = Fastify();
+
+// Add your routes, etc.
+
+app.listen({ port: 3030 });
+```
+
+```javascript {tabTitle:ESM}
+// Import this first!
+import "./instrument.mjs";
+
+// Now import other modules
+import Fastify from "fastify";
+
+const app = Fastify();
+
+// Add your routes, etc.
+
+app.listen({ port: 3030 });
+```

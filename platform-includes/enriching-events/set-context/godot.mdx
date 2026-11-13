@@ -1,0 +1,24 @@
+```gdscript {tabTitle:GDScript} {mdExpandTabs}
+SentrySDK.set_context(
+	"ship",
+	{
+		"name": "Rocket Ship 2000",
+		"speed": 100,
+		"boost": true,
+		"parts": ["engine", "rocket_launcher", "escape_pod"],
+	}
+)
+```
+
+```csharp {tabTitle:C#}
+SentrySdk.ConfigureScope(scope =>
+{
+    scope.Contexts["ship"] = new Dictionary<string, object>
+    {
+        ["name"] = "Rocket Ship 2000",
+        ["speed"] = 100,
+        ["boost"] = true,
+        ["parts"] = new[] { "engine", "rocket_launcher", "escape_pod" },
+    };
+});
+```

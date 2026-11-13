@@ -1,0 +1,25 @@
+#### Initializing OpenTelemetry
+
+Our `sentry-opentelemetry-agentless-spring` dependency also adds `opentelemetry-spring-boot-starter` which takes care of configuring OpenTelemetry to work with Sentry.
+
+
+Enable the Sentry propagator for OpenTelemetry by adding the following to your Spring configuration:
+
+```properties {tabTitle: application.properties}
+sentry.dsn=___PUBLIC_DSN___
+sentry.traces-sample-rate=1.0
+otel.propagators=tracecontext,baggage,sentry
+```
+
+```yaml {tabTitle: application.yml}
+sentry:
+    dsn: ___PUBLIC_DSN___
+    traces-sample-rate: 1.0
+otel:
+    propagators:
+        - tracecontext
+        - baggage
+        - sentry
+```
+
+The Sentry Spring Boot SDK will take care of the rest.

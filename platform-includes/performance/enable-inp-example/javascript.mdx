@@ -1,0 +1,12 @@
+```javascript
+Sentry.init({
+  // ...
+  integrations: [
+    Sentry.browserTracingIntegration({
+      webVitals: {
+        ignore: ["inp"],
+      },
+    }),
+  ],
+});
+```

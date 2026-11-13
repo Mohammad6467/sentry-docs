@@ -1,0 +1,548 @@
+'use client';
+
+import {QuestionMarkCircledIcon} from '@radix-ui/react-icons';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import {Button, Checkbox, Theme} from '@radix-ui/themes';
+import React, {ReactNode, useContext, useEffect, useReducer, useState} from 'react';
+import {usePlausibleEvent} from 'sentry-docs/hooks/usePlausibleEvent';
+
+import {CodeContext} from '../codeContext';
+import styles from './styles.module.scss';
+
+const OPTION_IDS = [
+  'error-monitoring',
+  'performance',
+  'profiling',
+  'session-replay',
+  'logs',
+  'user-feedback',
+  'source-maps',
+  'source-context',
+  'dsym',
+  'opentelemetry',
+  'metrics',
+] as const;
+
+const OPTION_IDS_SET = new Set(OPTION_IDS);
+
+type OptionId = (typeof OPTION_IDS)[number];
+
+const optionDetails: Record<
+  OptionId,
+  {
+    description: ReactNode;
+    name: string;
+    deps?: OptionId[];
+  }
+> = {
+  'error-monitoring': {
+    name: 'Error Monitoring',
+    description: "Let's admit it, we all have errors.",
+  },
+  logs: {
+    name: 'Logs',
+    description: (
+      <span>
+        Send text-based log information from your applications to Sentry for viewing
+        alongside relevant errors and searching by text-string or individual attributes.
+      </span>
+    ),
+  },
+  'session-replay': {
+    name: 'Session Replay',
+    description: (
+      <span>
+        Video-like reproductions of user sessions with debugging context to help you
+        confirm issue impact and troubleshoot faster.
+      </span>
+    ),
+  },
+  performance: {
+    name: 'Tracing',
+    description: (
+      <span>
+        Tracing and automatic performance issue detection across services and context on
+        who is impacted, outliers, regressions, and the root cause of your slowdown.
+      </span>
+    ),
+  },
+  profiling: {
+    name: 'Profiling',
+    description: (
+      <span>
+        <span className={styles.TooltipTitle}>Requires Tracing to be enabled</span>
+        See the exact lines of code causing your performance bottlenecks, for faster
+        troubleshooting and resource optimization.
+      </span>
+    ),
+    deps: ['performance'],
+  },
+  'source-maps': {
+    name: 'Source Maps',
+    description: (
+      <span>
+        Source maps for web applications that help translate minified code back to the
+        original source for better error reporting.
+      </span>
+    ),
+  },
+  'user-feedback': {
+    name: 'User Feedback',
+    description: (
+      <span>
+        Collect user feedback from anywhere in your application with an embeddable widget
+        that allows users to report bugs and provide insights.
+      </span>
+    ),
+  },
+  'source-context': {
+    name: 'Source Context',
+    description: (
+      <span>
+        Upload your source code to allow Sentry to display snippets of your code next to
+        the event stack traces.
+      </span>
+    ),
+  },
+  metrics: {
+    name: 'Metrics',
+    description: (
+      <span>
+        Send metrics from your application to Sentry for viewing alongside relevant errors
+        and searching by metric name or attributes.
+      </span>
+    ),
+  },
+  dsym: {
+    name: 'dSYM',
+    description: (
+      <span>
+        Debug symbols for iOS and macOS that provide the necessary information to convert
+        program addresses back to function names, source file names, and line numbers.
+      </span>
+    ),
+  },
+  opentelemetry: {
+    name: 'OpenTelemetry',
+    description: <span>Combine Sentry with OpenTelemetry.</span>,
+  },
+};
+
+export type OnboardingOptionType = {
+  /**
+   * Unique identifier for the option, will control the visibility
+   * of `<OnboardingOption optionId="this_id"` /> somewhere on the page
+   * or lines of code specified in in a `{onboardingOptions: {this_id: 'line-range'}}` in a code block meta
+   */
+  id: OptionId;
+  /**
+   * defaults to `true`
+   */
+  checked?: boolean;
+  disabled?: boolean;
+};
+
+const validateOptionIds = (options: Pick<OnboardingOptionType, 'id'>[]) => {
+  options.forEach(option => {
+    if (!OPTION_IDS_SET.has(option.id)) {
+      throw new Error(
+        `Invalid option id: ${option.id}.\nValid options are: ${OPTION_IDS.map(opt => `"${opt}"`).join(', ')}`
+      );
+    }
+  });
+};
+
+export function OnboardingOption({
+  children,
+  optionId = 'all',
+  hideForThisOption,
+  isStep = false,
+}: {
+  children: ReactNode;
+  optionId: OptionId | 'all';
+  hideForThisOption?: boolean;
+  isStep?: boolean;
+}) {
+  if (optionId !== 'all') {
+    // Allow not passing an optionId when isStep is true
+    validateOptionIds([{id: optionId}]);
+  }
+  const className = [hideForThisOption ? 'hidden' : '', isStep ? 'onboarding-step' : '']
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div
+      data-onboarding-option={optionId}
+      data-hide-for-this-option={hideForThisOption}
+      className={className}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Wrapper component that provides CSS counter context for numbered onboarding steps
+ * @param children - OnboardingOption components that should be numbered as steps
+ */
+export function OnboardingSteps({children}: {children: ReactNode}) {
+  return <div className="onboarding-steps">{children}</div>;
+}
+
+/**
+ * Updates DOM elements' visibility based on selected onboarding options
+ */
+export function updateElementsVisibilityForOptions(
+  options: OnboardingOptionType[],
+  touchedOptions: boolean
+) {
+  options.forEach(option => {
+    if (option.disabled) {
+      return;
+    }
+    const targetElements = document.querySelectorAll<HTMLDivElement>(
+      `[data-onboarding-option="${option.id}"]`
+    );
+
+    targetElements.forEach(el => {
+      const hiddenForThisOption = el.dataset.hideForThisOption === 'true';
+      if (hiddenForThisOption) {
+        el.classList.toggle('hidden', option.checked);
+      } else {
+        el.classList.toggle('hidden', !option.checked);
+      }
+      // only animate things when user has interacted with the options
+      if (touchedOptions) {
+        if (el.classList.contains('code-line')) {
+          el.classList.toggle('animate-line', option.checked);
+        }
+        // animate content, account for inverted logic for hiding
+        else {
+          el.classList.toggle(
+            'animate-content',
+            hiddenForThisOption ? !option.checked : option.checked
+          );
+        }
+      }
+    });
+    if (option.checked && optionDetails[option.id].deps?.length) {
+      const dependenciesSelector = optionDetails[option.id].deps!.map(
+        dep => `[data-onboarding-option="${dep}"]`
+      );
+      const dependencies = document.querySelectorAll<HTMLDivElement>(
+        dependenciesSelector.join(', ')
+      );
+
+      dependencies.forEach(dep => {
+        // don't unhide content explicitly hidden for the dependency option
+        const hiddenForThisOption = dep.dataset.hideForThisOption === 'true';
+        if (!hiddenForThisOption) {
+          dep.classList.remove('hidden');
+        }
+      });
+    }
+  });
+
+  // Handle integrations wrapper: hide opening/closing brackets if no integrations are visible
+  const openWrappers = document.querySelectorAll<HTMLElement>(
+    '[data-integrations-wrapper="open"]'
+  );
+
+  openWrappers.forEach(openLine => {
+    const codeBlock = openLine.closest('code.code-highlight');
+    if (!codeBlock) return;
+
+    // Helper function to get all code lines, including those nested in HighlightBlocks
+    const getAllCodeLines = (container: Element): HTMLElement[] => {
+      const lines: HTMLElement[] = [];
+      Array.from(container.children).forEach(child => {
+        const el = child as HTMLElement;
+        // If it's a highlight-block, get lines from inside it
+        if (el.classList.contains('highlight-block')) {
+          // Lines are nested in highlight-block > div (CodeLinesContainer)
+          const linesContainer = el.querySelector('div');
+          if (linesContainer) {
+            lines.push(...(Array.from(linesContainer.children) as HTMLElement[]));
+          }
+        } else {
+          // Regular line, add it directly
+          lines.push(el);
+        }
+      });
+      return lines;
+    };
+
+    const allLines = getAllCodeLines(codeBlock);
+    const openIndex = allLines.indexOf(openLine);
+
+    // Find the matching close line in the same code block
+    let closeIndex = -1;
+    for (let i = openIndex + 1; i < allLines.length; i++) {
+      if (allLines[i].dataset.integrationsWrapper === 'close') {
+        closeIndex = i;
+        break;
+      }
+    }
+
+    if (closeIndex === -1) return;
+
+    // Check if any lines between open and close are visible (non-marker lines)
+    let hasVisibleIntegrations = false;
+    for (let i = openIndex + 1; i < closeIndex; i++) {
+      const line = allLines[i];
+      const isHidden = line.classList.contains('hidden');
+      const isMarker = line.dataset.onboardingOptionHidden;
+
+      // Count any visible non-marker line
+      if (!isMarker && !isHidden) {
+        hasVisibleIntegrations = true;
+        break;
+      }
+    }
+
+    // Toggle visibility of both open and close lines
+    openLine.classList.toggle('hidden', !hasVisibleIntegrations);
+    allLines[closeIndex].classList.toggle('hidden', !hasVisibleIntegrations);
+
+    // Hide empty lines adjacent to the wrapper when no integrations are visible
+    if (!hasVisibleIntegrations) {
+      // Check line before open wrapper
+      if (openIndex > 0) {
+        const prevLine = allLines[openIndex - 1];
+        if (!prevLine.textContent?.trim()) {
+          prevLine.classList.add('hidden');
+          prevLine.dataset.emptyLineHidden = 'true';
+        }
+      }
+
+      // Check line after close wrapper
+      if (closeIndex < allLines.length - 1) {
+        const nextLine = allLines[closeIndex + 1];
+        if (!nextLine.textContent?.trim()) {
+          nextLine.classList.add('hidden');
+          nextLine.dataset.emptyLineHidden = 'true';
+        }
+      }
+    } else {
+      // Show empty lines when integrations are visible
+      if (openIndex > 0) {
+        const prevLine = allLines[openIndex - 1];
+        if (prevLine.dataset.emptyLineHidden === 'true') {
+          prevLine.classList.remove('hidden');
+          delete prevLine.dataset.emptyLineHidden;
+        }
+      }
+
+      if (closeIndex < allLines.length - 1) {
+        const nextLine = allLines[closeIndex + 1];
+        if (nextLine.dataset.emptyLineHidden === 'true') {
+          nextLine.classList.remove('hidden');
+          delete nextLine.dataset.emptyLineHidden;
+        }
+      }
+    }
+  });
+}
+
+export function OnboardingOptionButtons({
+  options: initialOptions,
+  defaults = [],
+}: {
+  // convenience to allow passing option ids as strings when no additional config is required
+  options: (OnboardingOptionType | OptionId)[];
+  defaults?: OptionId[];
+}) {
+  const codeContext = useContext(CodeContext);
+  const {emit} = usePlausibleEvent();
+
+  validateOptionIds(defaults.map(id => ({id})));
+  const defaultOptionIds = new Set(defaults);
+
+  const normalizedOptions = initialOptions
+    .map(option => {
+      if (typeof option === 'string') {
+        return {
+          id: option,
+          // error monitoring always needs to be checked and disabled
+          disabled: option === 'error-monitoring',
+          checked: option === 'error-monitoring' || defaultOptionIds.has(option),
+        };
+      }
+      return {
+        ...option,
+        checked: option.checked || defaultOptionIds.has(option.id),
+      };
+    })
+    // sort options by their index in OPTION_IDS
+    // so that the order of the options is consistent
+    // regardless of how the user passes them in
+    .sort((a, b) => {
+      const indexA = OPTION_IDS.indexOf(a.id);
+      const indexB = OPTION_IDS.indexOf(b.id);
+      return indexA - indexB;
+    });
+
+  validateOptionIds(normalizedOptions);
+
+  const optionIds = new Set(normalizedOptions.map(option => option.id));
+  defaults.forEach(defaultOption => {
+    if (!optionIds.has(defaultOption)) {
+      throw new Error(`Default option "${defaultOption}" must be included in options.`);
+    }
+  });
+
+  const [options, setSelectedOptions] = useState<OnboardingOptionType[]>(
+    normalizedOptions.map(option => ({
+      ...option,
+      // default to unchecked if not explicitly set
+      checked: option.checked ?? false,
+    }))
+  );
+  const [touchedOptions, touchOptions] = useReducer(() => true, false);
+
+  function handleCheckedChange(clickedOption: OnboardingOptionType, checked: boolean) {
+    touchOptions();
+
+    // Track the toggle event in Plausible
+    emit('Onboarding Option Toggle', {
+      props: {
+        checked,
+        optionId: clickedOption.id,
+        optionName: optionDetails[clickedOption.id].name,
+        page: typeof window !== 'undefined' ? window.location.pathname : '',
+      },
+    });
+
+    const dependencies = optionDetails[clickedOption.id].deps ?? [];
+    const depenedants =
+      options.filter(opt => optionDetails[opt.id].deps?.includes(clickedOption.id)) ?? [];
+    setSelectedOptions(prev => {
+      // - select option and all dependencies
+      // - disable dependencies
+      if (checked) {
+        return prev.map(opt => {
+          if (opt.id === clickedOption.id) {
+            return {
+              ...opt,
+              checked: true,
+            };
+          }
+          if (dependencies.includes(opt.id)) {
+            return {...opt, checked: true};
+          }
+          return opt;
+        });
+      }
+      // unselect option and all dependants
+      // Note: does not account for dependencies of multiple dependants
+      return prev.map(opt => {
+        if (opt.id === clickedOption.id) {
+          return {
+            ...opt,
+            checked: false,
+          };
+        }
+        // deselect dependants
+        if (depenedants.find(dep => dep.id === opt.id)) {
+          return {...opt, checked: false};
+        }
+        return opt;
+      });
+    });
+  }
+
+  // sync local state to global
+  useEffect(() => {
+    codeContext?.updateOnboardingOptions(options);
+  }, [options, codeContext]);
+
+  useEffect(() => {
+    updateElementsVisibilityForOptions(options, touchedOptions);
+  }, [options, touchOptions, touchedOptions]);
+
+  return (
+    <div className="onboarding-options flex flex-wrap gap-3 py-2 bg-[var(--white)] dark:bg-[var(--gray-1)] lg:sticky top-[var(--header-height)] z-[4] shadow-[var(--shadow-6)] transition">
+      {options.map(option => (
+        <Button
+          variant="surface"
+          size={{
+            xs: '3',
+            md: '2',
+          }}
+          disabled={option.disabled}
+          asChild
+          key={option.id}
+          className="w-full md:w-auto"
+        >
+          <label role="button">
+            <Checkbox
+              defaultChecked={option.disabled}
+              checked={option.checked}
+              disabled={option.disabled}
+              variant="soft"
+              size="1"
+              onCheckedChange={ev => {
+                handleCheckedChange(option, ev as boolean);
+              }}
+            />
+
+            {optionDetails[option.id].name}
+            {optionDetails[option.id] && (
+              <Tooltip.Provider delayDuration={300}>
+                <Tooltip.Root>
+                  <Tooltip.Trigger
+                    asChild
+                    onMouseEnter={e => {
+                      // Explicit mouse enter handling for Firefox compatibility
+                      e.currentTarget.setAttribute('data-state', 'delayed-open');
+                    }}
+                    onMouseLeave={e => {
+                      // Explicit mouse leave handling for Firefox compatibility
+                      e.currentTarget.removeAttribute('data-state');
+                    }}
+                    onFocus={e => {
+                      // Ensure keyboard navigation works
+                      e.currentTarget.setAttribute('data-state', 'delayed-open');
+                    }}
+                    onBlur={e => {
+                      // Ensure keyboard navigation works
+                      e.currentTarget.removeAttribute('data-state');
+                    }}
+                  >
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Help: ${optionDetails[option.id].name}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        cursor: 'help',
+                        outline: 'none',
+                      }}
+                    >
+                      <QuestionMarkCircledIcon fontSize={20} strokeWidth="2" />
+                    </span>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Theme accentColor="iris">
+                      <Tooltip.Content
+                        className={styles.TooltipContent}
+                        sideOffset={5}
+                        align="center"
+                        side="top"
+                      >
+                        {optionDetails[option.id].description}
+                        <Tooltip.Arrow className={styles.TooltipArrow} />
+                      </Tooltip.Content>
+                    </Theme>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+            )}
+          </label>
+        </Button>
+      ))}
+    </div>
+  );
+}

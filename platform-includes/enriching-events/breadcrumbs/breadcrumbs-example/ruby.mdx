@@ -1,0 +1,8 @@
+```ruby
+crumb = Sentry::Breadcrumb.new(
+  category: "auth",
+  message: "Authenticated user #{user.email}",
+  level: "info"
+)
+Sentry.add_breadcrumb(crumb)
+```

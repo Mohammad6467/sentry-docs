@@ -1,0 +1,13 @@
+<Alert>
+
+The OTLP-based OpenTelemetry integration requires `sentry-go` v0.45.0+, Go >= 1.25, and `go.opentelemetry.io/otel` v1.43.0+.
+
+</Alert>
+
+Install the `otel` and `otel/otlp` modules in addition to the main SDK:
+
+```bash
+go get github.com/getsentry/sentry-go \
+       github.com/getsentry/sentry-go/otel \
+       github.com/getsentry/sentry-go/otel/otlp
+```

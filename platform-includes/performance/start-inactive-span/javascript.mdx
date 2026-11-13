@@ -1,0 +1,7 @@
+```javascript
+const span1 = Sentry.startInactiveSpan({ name: "span1" });
+
+someWork();
+
+span1.end();
+```
